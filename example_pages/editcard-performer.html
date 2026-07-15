@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="manifest" href="/manifest.json" />
+    <title>Create Performer "Soraia (Brazilian)" | StashDB</title>
+    <script
+      type="module"
+      crossorigin=""
+      src="/assets/index-BkORsWGs.js"
+    ></script>
+    <style data-emotion="css" data-s=""></style>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root">
+      <div>
+        <nav class="px-4 navbar navbar-expand navbar-dark bg-dark">
+          <div class="me-auto navbar-nav">
+            <a class="nav-link" href="/">Home</a
+            ><a class="nav-link" href="/performers">Performers</a
+            ><a class="nav-link" href="/scenes">Scenes</a
+            ><a class="nav-link" href="/studios">Studios</a
+            ><a class="nav-link" href="/tags">Tags</a
+            ><a aria-current="page" class="nav-link active" href="/edits"
+              >Edits</a
+            ><a class="nav-link" href="/drafts">Drafts</a
+            ><a class="nav-link" href="/sites">Sites</a
+            ><a class="nav-link" href="/audits">Audits</a
+            ><a
+              href="https://guidelines.stashdb.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="nav-link"
+              ><svg
+                data-prefix="fas"
+                data-icon="book"
+                class="svg-inline--fa fa-book fa-icon mx-2"
+                role="img"
+                viewBox="0 0 448 512"
+                aria-hidden="true"
+              >
+                <path
+                  fill="currentColor"
+                  d="M384 512L96 512c-53 0-96-43-96-96L0 96C0 43 43 0 96 0L400 0c26.5 0 48 21.5 48 48l0 288c0 20.9-13.4 38.7-32 45.3l0 66.7c17.7 0 32 14.3 32 32s-14.3 32-32 32l-32 0zM96 384c-17.7 0-32 14.3-32 32s14.3 32 32 32l256 0 0-64-256 0zm32-232c0 13.3 10.7 24 24 24l176 0c13.3 0 24-10.7 24-24s-10.7-24-24-24l-176 0c-13.3 0-24 10.7-24 24zm24 72c-13.3 0-24 10.7-24 24s10.7 24 24 24l176 0c13.3 0 24-10.7 24-24s-10.7-24-24-24l-176 0z"
+                ></path></svg
+              >Guidelines</a
+            >
+          </div>
+          <div class="align-items-center navbar-nav">
+            <a href="/notifications"
+              ><button type="button" class="NotificationBadge btn btn-link">
+                <svg
+                  data-prefix="far"
+                  data-icon="bell"
+                  class="svg-inline--fa fa-bell fa-icon"
+                  role="img"
+                  viewBox="0 0 448 512"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M224 0c-13.3 0-24 10.7-24 24l0 9.7C118.6 45.3 56 115.4 56 200l0 14.5c0 37.7-10 74.7-29 107.3L5.1 359.2C1.8 365 0 371.5 0 378.2 0 399.1 16.9 416 37.8 416l372.4 0c20.9 0 37.8-16.9 37.8-37.8 0-6.7-1.8-13.3-5.1-19L421 321.7c-19-32.6-29-69.6-29-107.3l0-14.5c0-84.6-62.6-154.7-144-166.3l0-9.7c0-13.3-10.7-24-24-24zM392.4 368l-336.9 0 12.9-22.1C91.7 306 104 260.6 104 214.5l0-14.5c0-66.3 53.7-120 120-120s120 53.7 120 120l0 14.5c0 46.2 12.3 91.5 35.5 131.4L392.4 368zM156.1 464c9.9 28 36.6 48 67.9 48s58-20 67.9-48l-135.8 0z"
+                  ></path>
+                </svg></button></a
+            ><a class="nav-link ms-auto me-2" href="/users/User"
+              ><svg
+                data-prefix="fas"
+                data-icon="user"
+                class="svg-inline--fa fa-user fa-icon me-2"
+                role="img"
+                viewBox="0 0 448 512"
+                aria-hidden="true"
+              >
+                <path
+                  fill="currentColor"
+                  d="M224 248a120 120 0 1 0 0-240 120 120 0 1 0 0 240zm-29.7 56C95.8 304 16 383.8 16 482.3 16 498.7 29.3 512 45.7 512l356.6 0c16.4 0 29.7-13.3 29.7-29.7 0-98.5-79.8-178.3-178.3-178.3l-59.4 0z"
+                ></path></svg
+              >User</a
+            ><a class="nav-link" href="/users">Users</a
+            ><a class="nav-link me-4" href="/logout">Logout</a>
+            <div class="SearchField">
+              <div class="css-b62m3t-container">
+                <span
+                  id="react-select-2-live-region"
+                  class="css-7pg0cj-a11yText"
+                ></span
+                ><span
+                  aria-live="polite"
+                  aria-atomic="false"
+                  aria-relevant="additions text"
+                  role="log"
+                  class="css-7pg0cj-a11yText"
+                ></span>
+                <div class="react-select__control css-13cymwt-control">
+                  <div class="SearchHint">
+                    <svg
+                      color="black"
+                      data-prefix="far"
+                      data-icon="circle-question"
+                      class="svg-inline--fa fa-circle-question fa-icon"
+                      role="img"
+                      viewBox="0 0 512 512"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fill="currentColor"
+                        d="M464 256a208 208 0 1 0 -416 0 208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0 256 256 0 1 1 -512 0zm256-80c-17.7 0-32 14.3-32 32 0 13.3-10.7 24-24 24s-24-10.7-24-24c0-44.2 35.8-80 80-80s80 35.8 80 80c0 47.2-36 67.2-56 74.5l0 3.8c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-8.1c0-20.5 14.8-35.2 30.1-40.2 6.4-2.1 13.2-5.5 18.2-10.3 4.3-4.2 7.7-10 7.7-19.6 0-17.7-14.3-32-32-32zM224 368a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"
+                      ></path>
+                    </svg>
+                  </div>
+                  <div class="react-select__value-container css-hlgwow">
+                    <div
+                      class="react-select__placeholder css-1jqq78o-placeholder"
+                      id="react-select-2-placeholder"
+                    >
+                      Search for performer or scene...
+                    </div>
+                    <div
+                      class="react-select__input-container css-19bb58m"
+                      data-value=""
+                    >
+                      <input
+                        class="react-select__input"
+                        autocapitalize="none"
+                        autocomplete="off"
+                        autocorrect="off"
+                        id="react-select-2-input"
+                        spellcheck="false"
+                        tabindex="0"
+                        type="text"
+                        aria-autocomplete="list"
+                        aria-expanded="false"
+                        aria-haspopup="true"
+                        role="combobox"
+                        aria-activedescendant=""
+                        aria-describedby="react-select-2-placeholder"
+                        value=""
+                        style="
+                          color: inherit;
+                          background: 0px center;
+                          opacity: 1;
+                          width: 100%;
+                          grid-area: 1 / 2;
+                          font: inherit;
+                          min-width: 2px;
+                          border: 0px;
+                          margin: 0px;
+                          outline: 0px;
+                          padding: 0px;
+                        "
+                      />
+                    </div>
+                  </div>
+                  <div class="react-select__indicators css-1wy0on6"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </nav>
+        <main class="MainContent container-fluid">
+          <div class="NarrowPage">
+            <div>
+              <div class="d-flex justify-content-end mb-2">
+                <a
+                  class="me-2"
+                  href="/edits/019e5ec5-2df0-7346-a27a-638c53842e9e/amend"
+                  ><button type="button" class="btn btn-primary">
+                    <svg
+                      data-prefix="fas"
+                      data-icon="pen-to-square"
+                      class="svg-inline--fa fa-pen-to-square fa-icon me-2"
+                      role="img"
+                      viewBox="0 0 512 512"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fill="currentColor"
+                        d="M471.6 21.7c-21.9-21.9-57.3-21.9-79.2 0L368 46.1 465.9 144 490.3 119.6c21.9-21.9 21.9-57.3 0-79.2L471.6 21.7zm-299.2 220c-6.1 6.1-10.8 13.6-13.5 21.9l-29.6 88.8c-2.9 8.6-.6 18.1 5.8 24.6s15.9 8.7 24.6 5.8l88.8-29.6c8.2-2.7 15.7-7.4 21.9-13.5L432 177.9 334.1 80 172.4 241.7zM96 64C43 64 0 107 0 160L0 416c0 53 43 96 96 96l256 0c53 0 96-43 96-96l0-96c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 96c0 17.7-14.3 32-32 32L96 448c-17.7 0-32-14.3-32-32l0-256c0-17.7 14.3-32 32-32l96 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L96 64z"
+                      ></path></svg
+                    >Amend Edit
+                  </button></a
+                ><button type="button" class="btn btn-danger">
+                  <svg
+                    data-prefix="fas"
+                    data-icon="gavel"
+                    class="svg-inline--fa fa-gavel fa-icon me-2"
+                    role="img"
+                    viewBox="0 0 576 512"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill="currentColor"
+                      d="M169.6 153.4l-18.7-18.7c-12.5-12.5-12.5-32.8 0-45.3L265.6-25.4c12.5-12.5 32.8-12.5 45.3 0L329.6-6.6c12.5 12.5 12.5 32.8 0 45.3L214.9 153.4c-12.5 12.5-32.8 12.5-45.3 0zM276 211.7l-31.4-31.4 112-112 119.4 119.4-112 112-31.4-31.4-232 232c-15.6 15.6-40.9 15.6-56.6 0s-15.6-40.9 0-56.6l232-232zM390.9 374.6c-12.5-12.5-12.5-32.8 0-45.3L505.6 214.6c12.5-12.5 32.8-12.5 45.3 0l18.7 18.7c12.5 12.5 12.5 32.8 0 45.3L454.9 393.4c-12.5 12.5-32.8 12.5-45.3 0l-18.7-18.7z"
+                    ></path></svg
+                  >Delete Edit
+                </button>
+              </div>
+              <div class="EditCard mb-3 card">
+                <div class="row card-header">
+                  <div class="flex-column col-4">
+                    <a href="/edits/019e5ec5-2df0-7346-a27a-638c53842e9e"
+                      ><h5 class="text-capitalize">create performer</h5></a
+                    >
+                    <div>
+                      <b class="me-2">Author:</b
+                      ><a href="/users/Maista"><span>Maista</span></a>
+                    </div>
+                    <div>
+                      <b class="me-2">Created:</b
+                      ><span>May 25, 2026 12:54:01 PM</span>
+                    </div>
+                  </div>
+                  <div class="flex-column col-4 ms-auto text-end">
+                    <div>
+                      <b class="me-2">Status:</b
+                      ><span class="text-uppercase badge bg-success"
+                        >Accepted</span
+                      >
+                    </div>
+                  </div>
+                </div>
+                <hr />
+                <div class="card-body">
+                  <div class="mb-4 row">
+                    <div class="fw-bold text-end col-2">Created performer</div>
+                    <div class="ps-3 col">
+                      <a href="/performers/019e6314-ada6-75ea-956b-4a4a3fb15f38"
+                        >Soraia<small class="text-muted ms-1"
+                          >(Brazilian)</small
+                        ></a
+                      >
+                    </div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Name</b>
+                    <div class="col-10"><div class="EditDiff">Soraia</div></div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Disambiguation</b>
+                    <div class="col-10">
+                      <div class="EditDiff">Brazilian</div>
+                    </div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Aliases</b>
+                    <div class="col-10">
+                      <div class="EditDiff">Soraya, Natasha</div>
+                    </div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Gender</b>
+                    <div class="col-10"><div class="EditDiff">Female</div></div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Birthdate</b>
+                    <div class="col-10">
+                      <div class="EditDiff">1982-04-24</div>
+                    </div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Eye Color</b>
+                    <div class="col-10"><div class="EditDiff">Brown</div></div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Hair Color</b>
+                    <div class="col-10"><div class="EditDiff">Blond</div></div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Height</b>
+                    <div class="col-10"><div class="EditDiff">183</div></div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Breast Type</b>
+                    <div class="col-10">
+                      <div class="EditDiff">Natural</div>
+                    </div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Bra Size</b>
+                    <div class="col-10"><div class="EditDiff">34C</div></div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Waist Size</b>
+                    <div class="col-10"><div class="EditDiff">30</div></div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Hip Size</b>
+                    <div class="col-10"><div class="EditDiff">38</div></div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Nationality</b>
+                    <div class="col-10"><div class="EditDiff">Brazil</div></div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Ethnicity</b>
+                    <div class="col-10"><div class="EditDiff">Latin</div></div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Career Start</b>
+                    <div class="col-10"><div class="EditDiff">2014</div></div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Career End</b>
+                    <div class="col-10"><div class="EditDiff">2015</div></div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Tattoos</b>
+                    <div class="col-10">
+                      <div class="EditDiff">
+                        Lower left abdomen (Dolphin) Right buttcheek (Blue
+                        butterfly) Left ringfinger (Heart outline) Right
+                        shoulderblade (Fairy)
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mb-2 row">
+                    <b class="col-2 text-end pt-1">Piercings</b>
+                    <div class="col-10">
+                      <div class="EditDiff">Navel Right nostril (Stud)</div>
+                    </div>
+                  </div>
+                  <div class="URLChangeRow row">
+                    <b class="col-2 text-end">Links</b>
+                    <div class="col-10">
+                      <div class="URLChangeRow">
+                        <ul class="ps-0">
+                          <li class="d-flex align-items-start">
+                            <a
+                              class="SiteLink"
+                              href="/sites/222b6ae1-56d7-494c-8ce9-890a1158d750"
+                              ><img
+                                class="SiteLink-icon"
+                                src="https://stashdb.org/images/site/222b6ae1-56d7-494c-8ce9-890a1158d750?v=1781274094"
+                                alt=""
+                              /><span class="SiteLink-name">IAFD</span></a
+                            ><a
+                              href="https://www.iafd.com/person.rme/id=211215b2-a167-430a-9b5d-eec593bbba8d"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="d-inline-block w-50 flex-grow-1 text-break"
+                              >https://www.iafd.com/person.rme/id=211215b2-a167-430a-9b5d-eec593bbba8d</a
+                            >
+                          </li>
+                          <li class="d-flex align-items-start">
+                            <a
+                              class="SiteLink"
+                              href="/sites/5946f3e7-a756-4dca-9cfd-61e05b265683"
+                              ><img
+                                class="SiteLink-icon"
+                                src="https://stashdb.org/images/site/5946f3e7-a756-4dca-9cfd-61e05b265683?v=1781274040"
+                                alt=""
+                              /><span class="SiteLink-name">Indexxx</span></a
+                            ><a
+                              href="https://www.indexxx.com/m/soraya-5"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="d-inline-block w-50 flex-grow-1 text-break"
+                              >https://www.indexxx.com/m/soraya-5</a
+                            >
+                          </li>
+                          <li class="d-flex align-items-start">
+                            <a
+                              class="SiteLink"
+                              href="/sites/fcb954ab-122a-4550-bfd6-0208141a025a"
+                              ><img
+                                class="SiteLink-icon"
+                                src="https://stashdb.org/images/site/fcb954ab-122a-4550-bfd6-0208141a025a?v=1781273490"
+                                alt=""
+                              /><span class="SiteLink-name"
+                                >Studio Profile</span
+                              ></a
+                            ><a
+                              href="https://www.realitykings.com/model/2797/soraya"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="d-inline-block w-50 flex-grow-1 text-break"
+                              >https://www.realitykings.com/model/2797/soraya</a
+                            >
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="ImageChangeRow row">
+                    <b class="col-2 text-end">Images</b>
+                    <div class="col-10">
+                      <div class="ImageChangeRow">
+                        <div class="ImageChangeRow-image">
+                          <button
+                            type="button"
+                            class="Image"
+                            style="aspect-ratio: 1000 / 1500"
+                          >
+                            <img
+                              alt=""
+                              src="https://stashdb.org/images/6eff22aa-8be2-4028-be11-5c0ad7cea00f?size=full"
+                              class="Image-image"
+                            /><span class="Image-magnify"
+                              ><svg
+                                data-prefix="fas"
+                                data-icon="magnifying-glass"
+                                class="svg-inline--fa fa-magnifying-glass fa-icon"
+                                role="img"
+                                viewBox="0 0 512 512"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  fill="currentColor"
+                                  d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376C296.3 401.1 253.9 416 208 416 93.1 416 0 322.9 0 208S93.1 0 208 0 416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z"
+                                ></path></svg
+                            ></span>
+                          </button>
+                          <div class="text-center">1000 x 1500</div>
+                        </div>
+                        <div class="ImageChangeRow-image">
+                          <button
+                            type="button"
+                            class="Image"
+                            style="aspect-ratio: 1000 / 1500"
+                          >
+                            <img
+                              alt=""
+                              src="https://stashdb.org/images/c9851e4c-bcf2-4003-90b1-c1b5065fdb2a?size=full"
+                              class="Image-image"
+                            /><span class="Image-magnify"
+                              ><svg
+                                data-prefix="fas"
+                                data-icon="magnifying-glass"
+                                class="svg-inline--fa fa-magnifying-glass fa-icon"
+                                role="img"
+                                viewBox="0 0 512 512"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  fill="currentColor"
+                                  d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376C296.3 401.1 253.9 416 208 416 93.1 416 0 322.9 0 208S93.1 0 208 0 416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z"
+                                ></path></svg
+                            ></span>
+                          </button>
+                          <div class="text-center">1000 x 1500</div>
+                        </div>
+                        <div class="ImageChangeRow-image">
+                          <button
+                            type="button"
+                            class="Image"
+                            style="aspect-ratio: 501 / 751"
+                          >
+                            <img
+                              alt=""
+                              src="https://stashdb.org/images/a00d0161-7cc0-44e7-8004-04554db5856c?size=full"
+                              class="Image-image"
+                            /><span class="Image-magnify"
+                              ><svg
+                                data-prefix="fas"
+                                data-icon="magnifying-glass"
+                                class="svg-inline--fa fa-magnifying-glass fa-icon"
+                                role="img"
+                                viewBox="0 0 512 512"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  fill="currentColor"
+                                  d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376C296.3 401.1 253.9 416 208 416 93.1 416 0 322.9 0 208S93.1 0 208 0 416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z"
+                                ></path></svg
+                            ></span>
+                          </button>
+                          <div class="text-center">501 x 751</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mt-2 row">
+                    <div class="col-md-8 offset-md-4">
+                      <div class="EditVotes">
+                        <h5>Votes:</h5>
+                        <div>
+                          <b class="me-2">Vote Tally:</b><b>3</b
+                          ><span class="mx-1">yes —</span><b>0</b
+                          ><span class="ms-1">no</span>
+                        </div>
+                        <div>
+                          <a href="/users/Tweeticoats">Tweeticoats</a
+                          ><span class="mx-2">•</span>Yes
+                        </div>
+                        <div>
+                          <a href="/users/Basi">Basi</a
+                          ><span class="mx-2">•</span>Yes
+                        </div>
+                        <div>
+                          <a href="/users/eeggee69">eeggee69</a
+                          ><span class="mx-2">•</span>Yes
+                        </div>
+                      </div>
+                      <div
+                        id="comment-019e5ec5-2df1-7f77-93c6-ef74da5ca03c"
+                        class="EditComment card"
+                      >
+                        <div class="pb-0 card-body">
+                          <p>
+                            Creating for
+                            <a
+                              href="https://stashdb.org/scenes/eafa7f17-9405-4a82-945c-850f6750704a"
+                              rel="nofollow noopener noreferrer"
+                              >Ass Out</a
+                            >
+                            so the (then-empty)
+                            <a
+                              href="https://stashdb.org/performers/15a415bf-0ac7-4a5f-bbed-40dc01f85155"
+                              rel="nofollow noopener noreferrer"
+                              >Soraya</a
+                            >
+                            can be deleted
+                          </p>
+                          <p>
+                            Vitals and images from her Reality Kings gallery,
+                            tattoos from visual inspection
+                          </p>
+                        </div>
+                        <div
+                          class="d-flex align-items-center justify-content-end card-footer"
+                        >
+                          <span class="EditComment-actions me-auto"
+                            ><button
+                              type="button"
+                              class="me-2 btn btn-outline-danger btn-sm"
+                            >
+                              Edit</button
+                            ><button
+                              type="button"
+                              disabled=""
+                              title="The submission comment can't be hidden"
+                              class="btn btn-outline-danger btn-sm"
+                            >
+                              Hide
+                            </button></span
+                          ><a href="/users/Maista">Maista</a
+                          ><span class="mx-1">•</span
+                          ><span>May 25, 2026 12:54:01 PM</span>
+                        </div>
+                      </div>
+                      <div class="d-flex">
+                        <button
+                          type="button"
+                          class="ms-auto minimal btn btn-link"
+                        >
+                          Add Comment
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+      <div class="ToastContainer"></div>
+    </div>
+  </body>
+</html>

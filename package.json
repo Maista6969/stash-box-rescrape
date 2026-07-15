@@ -1,0 +1,28 @@
+{
+  "name": "stash-box rescrape",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "watch": "vite build --watch --mode development",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/tampermonkey": "^5.0.5",
+    "diff": "9.0.0",
+    "happy-dom": "^20.10.6",
+    "prettier": "^3.9.5",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.3",
+    "vite-plugin-monkey": "^5.0.9",
+    "vitest": "^4.1.10"
+  }
+}
