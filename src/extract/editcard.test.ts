@@ -79,6 +79,23 @@ describe("extractSceneEditCardData against a real 'create scene' EditCard", () =
     expect(data.studio).toBe("TeamSkeet X StepHousehold");
   });
 
+  it("strips a Stash-Checker status symbol out of the studio name instead of treating it as part of the name", () => {
+    const doc = documentFromHTML(`
+      <div class="EditCard">
+        <div class="mb-2 row">
+          <b class="col-2 text-end pt-1">Studio</b>
+          <div class="col-10">
+            <div class="EditDiff">
+              <a href="/studios/04aeb6a9-30bf-4a8b-b97a-44769c17713c"><span class="stashCheckerSymbol" data-symbol="check" style="color: green;">&#x2713;&nbsp;</span>joshualewisxxx</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+    const result = extractSceneEditCardData(doc.querySelector(".EditCard")!);
+    expect(result.studio).toBe("joshualewisxxx");
+  });
+
   it("extracts performers in order", () => {
     expect(data.performers).toEqual([
       { name: "Alina Voss", alias: null },
@@ -124,6 +141,28 @@ describe("extractSceneEditCardData against a real 'create scene' EditCard", () =
     ]);
   });
 
+  it("strips a Stash-Checker status symbol out of a performer's credited name", () => {
+    const doc = documentFromHTML(`
+      <div class="EditCard">
+        <div class="ListChangeRow-Performers row">
+          <div class="col-10">
+            <div class="ListChangeRow">
+              <ul>
+                <li><a href="/performers/4cf2734d-e94f-446a-b771-006f8f5fe3f2"><span><span class="stashCheckerSymbol" data-symbol="check" style="color: green;">&#x2713;&nbsp;</span>Lily Thot</span></a></li>
+                <li><a href="/performers/b5f6d954-b847-4954-832f-6dcffacbb61e"><span><span class="stashCheckerSymbol" data-symbol="cross" style="color: red;">&#x2717;&nbsp;</span>Joshua Lewis</span></a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+    const result = extractSceneEditCardData(doc.querySelector(".EditCard")!);
+    expect(result.performers).toEqual([
+      { name: "Lily Thot", alias: null },
+      { name: "Joshua Lewis", alias: null },
+    ]);
+  });
+
   it("extracts tags", () => {
     expect(data.tags.length).toBeGreaterThan(0);
     expect(data.tags).toContain("4K Available");
@@ -145,6 +184,19 @@ describe("extractSceneEditCardData against a real 'create scene' EditCard", () =
 
   it("extracts the fingerprint types present on the submission", () => {
     expect(data.fingerprints).toEqual(["OSHASH", "PHASH"]);
+  });
+
+  it("strips a Stash-Checker status symbol out of the title too, not just linked rows", () => {
+    const doc = documentFromHTML(`
+      <div class="EditCard">
+        <div class="mb-2 row">
+          <b class="col-2 text-end pt-1">Title</b>
+          <div class="col-10"><div class="EditDiff"><span class="stashCheckerSymbol" data-symbol="check" style="color: green;">&#x2713;&nbsp;</span>Help Me Shoot Porn</div></div>
+        </div>
+      </div>
+    `);
+    const result = extractSceneEditCardData(doc.querySelector(".EditCard")!);
+    expect(result.title).toBe("Help Me Shoot Porn");
   });
 
   it("returns empty/null values for fields with no matching row at all", () => {

@@ -92,7 +92,7 @@ function findRowByLabel(editCard: Element, label: string): Element | null {
 
 function getEditDiffContent(row: Element | null): string | null {
   const editDiff = row?.querySelector(".EditDiff");
-  return editDiff?.textContent?.trim() ?? null;
+  return editDiff ? textContentOf(editDiff) : null;
 }
 
 export function extractURLsFromEditCard(editCard: Element): string[] {
@@ -116,8 +116,19 @@ function extractImageFromEditCard(editCard: Element): SizedImage | null {
   return { src: imageUrl, width: Number(match[1]), height: Number(match[2]) };
 }
 
+// Compatibility with Stash-Checker https://github.com/timo95/stash-checker
+function withoutStashCheckerSymbols(elem: Element): Element {
+  if (!elem.querySelector(".stashCheckerSymbol")) return elem;
+  const clone = elem.cloneNode(true) as Element;
+  clone
+    .querySelectorAll(".stashCheckerSymbol")
+    .forEach((symbol) => symbol.remove());
+  return clone;
+}
+
 function textContentOf(elem: Element | null): string {
-  return elem?.textContent?.trim() ?? "";
+  if (!elem) return "";
+  return withoutStashCheckerSymbols(elem).textContent?.trim() ?? "";
 }
 
 // Only the outer <small>'s own text, e.g. "(Charles Dera)" - excludes any
