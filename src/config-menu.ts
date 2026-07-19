@@ -156,14 +156,10 @@ export const showConfigMenu = () => {
     saveConfig(live);
     // Replace buttons but leave results as they are, user might want to keep
     // comparing until they rescrape (or switch back to the same source)
-    reloadScraperPatterns()
-      .then(() => {
-        reloadEditcardScraperIcons();
-        reloadEditPageScraperButtons();
-      })
-      .catch((err) =>
-        console.error("[rescrape] Failed to reload scraper patterns:", err),
-      );
+    reloadScraperPatterns().then(() => {
+      reloadEditcardScraperIcons();
+      reloadEditPageScraperButtons();
+    });
     close();
   });
 

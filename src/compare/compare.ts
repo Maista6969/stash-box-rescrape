@@ -1,5 +1,5 @@
 import { diffWordsWithSpace, type ChangeObject } from "diff";
-import type { SizedImage } from "../scraper-shared/types";
+import type { Dimensions } from "../scraper-shared/types";
 
 // Describes the relationship between origin data (already on stash-box) and
 // scraped data (from a Stash scraper), for a single field
@@ -36,6 +36,22 @@ export function compareExact(
   if (!b) return { status: "additional" };
   if (!a) return { status: "missing" };
   if (a === b) return { status: "match" };
+
+  return { status: "diff", diff: diffWordsWithSpace(a, b) };
+}
+
+// for studio codes and director names we're cool with casing differences
+export function compareCaseInsensitive(
+  current: string | null | undefined,
+  scraped: string | null | undefined,
+): CompareResult {
+  const a = current?.trim() ?? "";
+  const b = scraped?.trim() ?? "";
+
+  if (!a && !b) return { status: "match" };
+  if (!b) return { status: "additional" };
+  if (!a) return { status: "missing" };
+  if (a.toLowerCase() === b.toLowerCase()) return { status: "match" };
 
   return { status: "diff", diff: diffWordsWithSpace(a, b) };
 }
@@ -175,10 +191,12 @@ export function computeMissingUrls(
   };
 }
 
-// Images can only meaningfully be compared by their rendered dimensions
+// Images can only meaningfully be compared by their rendered dimensions -
+// takes plain Dimensions (not SizedImage) since src never factors in, so
+// this works whether or not the caller has a source URL on hand
 export function compareImageDimensions(
-  current: SizedImage | null | undefined,
-  scraped: SizedImage | null | undefined,
+  current: Dimensions | null | undefined,
+  scraped: Dimensions | null | undefined,
 ): FieldStatus {
   if (!current && !scraped) return "match";
   if (!scraped) return "additional";

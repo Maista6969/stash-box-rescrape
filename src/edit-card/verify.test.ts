@@ -41,8 +41,14 @@ describe("decideFieldRowPresentation", () => {
 });
 
 describe("decideImageComparison", () => {
+  const original = {
+    src: "https://example.com/old.jpg",
+    width: 640,
+    height: 360,
+  };
+
   it("derives aspect ratio and dimensions text from a hosted image", () => {
-    const result = decideImageComparison({
+    const result = decideImageComparison(original, {
       src: "https://example.com/cover.jpg",
       width: 1920,
       height: 1080,
@@ -51,16 +57,50 @@ describe("decideImageComparison", () => {
       aspectRatio: "1920 / 1080",
       dimsText: "1920 x 1080",
       commentText:
-        "Image should be [official scene cover image](https://example.com/cover.jpg)",
+        "Scene cover image doesn't match [official scene cover image](https://example.com/cover.jpg), your submitted image is 640 x 360 but I scraped 1920 x 1080",
     });
   });
 
   it("falls back to a plain-text comment for a data-URI image with no linkable URL", () => {
-    const result = decideImageComparison({
+    const result = decideImageComparison(original, {
       src: "data:image/jpeg;base64,abc123",
       width: 800,
       height: 600,
     });
-    expect(result.commentText).toBe("Image doesn't match the official source");
+    expect(result.commentText).toBe(
+      "Scene cover image doesn't match the official source image, your submitted image is 640 x 360 but I scraped 800 x 600",
+    );
+  });
+
+  it("omits the dimensions note when the original and scraped images are the same size", () => {
+    const result = decideImageComparison(
+      { src: "https://example.com/old.jpg", width: 1920, height: 1080 },
+      { src: "https://example.com/cover.jpg", width: 1920, height: 1080 },
+    );
+    expect(result.commentText).toBe(
+      "Scene cover image doesn't match [official scene cover image](https://example.com/cover.jpg)",
+    );
+  });
+
+  it("calls out that the image is missing entirely when there's no original", () => {
+    const result = decideImageComparison(null, {
+      src: "https://example.com/cover.jpg",
+      width: 1920,
+      height: 1080,
+    });
+    expect(result.commentText).toBe(
+      "Image is missing, should be [official scene cover image](https://example.com/cover.jpg)",
+    );
+  });
+
+  it("calls out a missing image even when the scraped image is a data URI", () => {
+    const result = decideImageComparison(null, {
+      src: "data:image/jpeg;base64,abc123",
+      width: 800,
+      height: 600,
+    });
+    expect(result.commentText).toBe(
+      "Image is missing, should be the official source image",
+    );
   });
 });

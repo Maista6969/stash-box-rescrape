@@ -75,6 +75,7 @@ export function makeCommentIcon(
 ): SVGSVGElement {
   const icon = createFontAwesomeIcon(
     "comment",
+    "rescrape-icon",
     "verifiable",
     "rescrape-injected",
   );

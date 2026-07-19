@@ -1,4 +1,5 @@
 import { getTabButton } from "./dom";
+import { gmRequest } from "../gm-request";
 
 export function createThumbnailImage(src: string): HTMLDivElement {
   const wrap = document.createElement("div");
@@ -25,34 +26,18 @@ export function createThumbnailImage(src: string): HTMLDivElement {
   return wrap;
 }
 
-export function determineImageAction(
-  scrapedDims: { width: any; height: any },
-  existingDims: { width: any; height: any } | null,
-) {
-  if (!existingDims) return "add";
-  if (
-    scrapedDims.width === existingDims.width &&
-    scrapedDims.height === existingDims.height
-  )
-    return "same";
-  return "replace";
-}
-
 export async function fetchBlob(url: string): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    GM_xmlhttpRequest({
-      method: "GET",
-      url,
-      responseType: "blob",
-      anonymous: true,
-      timeout: 15000,
-      onload: (res) =>
-        res.status >= 200 && res.status < 300
-          ? resolve(res.response as Blob)
-          : reject(new Error(`HTTP ${res.status}`)),
-      onerror: (err) => reject(new Error(String(err))),
-    });
+  const { status, response } = await gmRequest<Blob>({
+    method: "GET",
+    url,
+    responseType: "blob",
+    anonymous: true,
+    timeout: 15000,
   });
+  if (status < 200 || status >= 300) {
+    throw new Error(`HTTP ${status}`);
+  }
+  return response;
 }
 
 export async function applyImage(
@@ -99,8 +84,7 @@ function clientPoint(e: MouseEvent | TouchEvent): { x: number; y: number } {
   return { x: e.clientX, y: e.clientY };
 }
 
-// BUG: the slider can currently move past the image, we should clamp it horizontally to whichever image is larger
-export function buildSlider(existingSrc: string, scrapedSrc: string) {
+function buildCompareShell(existingSrc: string, scrapedSrc: string) {
   const rightWrap = document.createElement("div");
   rightWrap.className = "editpage-compare-right";
   const rightImg = document.createElement("img");
@@ -125,6 +109,102 @@ export function buildSlider(existingSrc: string, scrapedSrc: string) {
   const lblRight = document.createElement("span");
   lblRight.className = "editpage-compare-label-right";
   lblRight.textContent = "Scraped";
+
+  const compare = document.createElement("div");
+  compare.className = "editpage-compare";
+  compare.appendChild(rightWrap);
+  compare.appendChild(leftClip);
+  compare.appendChild(handle);
+  compare.appendChild(lblLeft);
+  compare.appendChild(lblRight);
+
+  return { compare, leftClip, leftImg, rightImg, handle };
+}
+
+// Wires the drag-to-reveal slider: pressing/dragging on `compare` moves
+// `handle`/`leftClip` to reveal more or less of the "current" image.
+// Returns `setSlider` (also used to set the initial 50/50 split once both
+// images have loaded) and `getCurrentPx` (read by the zoom lens to know
+// where the slider boundary currently sits).
+function wireDrag(
+  compare: HTMLDivElement,
+  leftClip: HTMLDivElement,
+  leftImg: HTMLImageElement,
+  rightImg: HTMLImageElement,
+  handle: HTMLDivElement,
+) {
+  let isDragging = false;
+  let currentPx = 0;
+
+  function setSlider(frac: number) {
+    const w = compare.offsetWidth;
+    const h = compare.offsetHeight;
+    const px = Math.round(w * Math.max(0, Math.min(1, frac)));
+    currentPx = px;
+    leftClip.style.width = `${px}px`;
+    handle.style.left = `${px}px`;
+
+    rightImg.style.height = `${h}px`;
+    leftImg.style.width = `${w}px`;
+    leftImg.style.height = `${h}px`;
+  }
+
+  function fracFromEvent(e: MouseEvent | TouchEvent) {
+    const rect = compare.getBoundingClientRect();
+    return (clientPoint(e).x - rect.left) / rect.width;
+  }
+
+  compare.addEventListener("mousedown", (e) => {
+    isDragging = true;
+    setSlider(fracFromEvent(e));
+    e.preventDefault();
+  });
+  compare.addEventListener(
+    "touchstart",
+    (e) => {
+      isDragging = true;
+      setSlider(fracFromEvent(e));
+    },
+    { passive: true },
+  );
+  window.addEventListener("mousemove", (e) => {
+    if (isDragging) setSlider(fracFromEvent(e));
+  });
+  window.addEventListener(
+    "touchmove",
+    (e) => {
+      if (isDragging) setSlider(fracFromEvent(e));
+    },
+    { passive: true },
+  );
+  window.addEventListener("mouseup", () => {
+    isDragging = false;
+  });
+  window.addEventListener("touchend", () => {
+    isDragging = false;
+  });
+
+  return { setSlider, getCurrentPx: () => currentPx };
+}
+
+// Builds the zoom lens: a small magnified preview that follows the cursor
+// over `compare`, itself split at the same boundary as the main slider
+// (via `getCurrentPx`). Toggling and wheel-zoom are wired here; showing/
+// hiding the lens as the cursor moves is wired by `wireZoomLens` below,
+// since that also needs to coordinate with the drag listeners.
+function buildZoomLens(
+  compare: HTMLDivElement,
+  existingSrc: string,
+  scrapedSrc: string,
+  getCurrentPx: () => number,
+) {
+  const LENS_SIZE = 200;
+  const MIN_ZOOM = 1.5;
+  const MAX_ZOOM = 8;
+  let zoom = 3;
+  let lensEnabled = false;
+  let lastCx = 0;
+  let lastCy = 0;
 
   const lens = document.createElement("div");
   lens.className = "editpage-compare-lens";
@@ -155,27 +235,6 @@ export function buildSlider(existingSrc: string, scrapedSrc: string) {
   lensToggle.className = "editpage-compare-lens-toggle";
   lensToggle.textContent = "Toggle zoom lens";
 
-  const compare = document.createElement("div");
-  compare.className = "editpage-compare";
-  compare.appendChild(rightWrap);
-  compare.appendChild(leftClip);
-  compare.appendChild(handle);
-  compare.appendChild(lblLeft);
-  compare.appendChild(lblRight);
-  compare.appendChild(lens);
-  compare.appendChild(lensToggle);
-
-  let isDragging = false;
-  let currentPx = 0;
-  let lastCx = 0;
-  let lastCy = 0;
-  let lensEnabled = false;
-
-  const LENS_SIZE = 200;
-  const MIN_ZOOM = 1.5;
-  const MAX_ZOOM = 8;
-  let zoom = 3;
-
   function setLensEnabled(enabled: boolean) {
     lensEnabled = enabled;
     lensToggle.classList.toggle("active", enabled);
@@ -197,25 +256,7 @@ export function buildSlider(existingSrc: string, scrapedSrc: string) {
     setLensEnabled(!lensEnabled);
   });
 
-  function setSlider(frac: number) {
-    const w = compare.offsetWidth;
-    const h = compare.offsetHeight;
-    const px = Math.round(w * Math.max(0, Math.min(1, frac)));
-    currentPx = px;
-    leftClip.style.width = `${px}px`;
-    handle.style.left = `${px}px`;
-
-    rightImg.style.height = `${h}px`;
-    leftImg.style.width = `${w}px`;
-    leftImg.style.height = `${h}px`;
-  }
-
-  function fracFromEvent(e: MouseEvent | TouchEvent) {
-    const rect = compare.getBoundingClientRect();
-    return (clientPoint(e).x - rect.left) / rect.width;
-  }
-
-  function updateLens(cx: number, cy: number) {
+  function updateLensAt(cx: number, cy: number) {
     lastCx = cx;
     lastCy = cy;
 
@@ -237,72 +278,80 @@ export function buildSlider(existingSrc: string, scrapedSrc: string) {
 
     const boundary = Math.max(
       0,
-      Math.min(LENS_SIZE, LENS_SIZE / 2 + (currentPx - cx) * zoom),
+      Math.min(LENS_SIZE, LENS_SIZE / 2 + (getCurrentPx() - cx) * zoom),
     );
     lensLeftClip.style.width = `${boundary}px`;
     lensHandle.style.left = `${boundary}px`;
     lensZoomLabel.textContent = `${zoom.toFixed(1)}×`;
   }
 
+  function adjustZoom(deltaY: number) {
+    zoom = Math.max(
+      MIN_ZOOM,
+      Math.min(MAX_ZOOM, zoom + (deltaY > 0 ? -0.5 : 0.5)),
+    );
+    updateLensAt(lastCx, lastCy);
+  }
+
+  return {
+    lens,
+    lensToggle,
+    isEnabled: () => lensEnabled,
+    updateLensAt,
+    adjustZoom,
+  };
+}
+
+// Shows/hides the lens as the cursor moves over `compare`, and wires its
+// scroll-to-zoom interaction.
+function wireZoomLens(
+  compare: HTMLDivElement,
+  zoomLens: ReturnType<typeof buildZoomLens>,
+) {
   function handlePointerMove(e: MouseEvent | TouchEvent) {
     const rect = compare.getBoundingClientRect();
     const { x: clientX, y: clientY } = clientPoint(e);
     const cx = clientX - rect.left;
     const cy = clientY - rect.top;
 
-    if (isDragging) {
-      setSlider(cx / rect.width);
-    }
-
     const withinBounds =
       cx >= 0 && cx <= rect.width && cy >= 0 && cy <= rect.height;
-    if (withinBounds && lensEnabled) {
-      lens.style.display = "block";
-      updateLens(cx, cy);
+    if (withinBounds && zoomLens.isEnabled()) {
+      zoomLens.lens.style.display = "block";
+      zoomLens.updateLensAt(cx, cy);
     } else {
-      lens.style.display = "none";
+      zoomLens.lens.style.display = "none";
     }
   }
 
-  compare.addEventListener("mousedown", (e) => {
-    isDragging = true;
-    setSlider(fracFromEvent(e));
-    e.preventDefault();
-  });
-  compare.addEventListener(
-    "touchstart",
-    (e) => {
-      isDragging = true;
-      setSlider(fracFromEvent(e));
-    },
-    { passive: true },
-  );
   window.addEventListener("mousemove", handlePointerMove);
   window.addEventListener("touchmove", handlePointerMove, { passive: true });
-  window.addEventListener("mouseup", () => {
-    isDragging = false;
-  });
   window.addEventListener("touchend", () => {
-    isDragging = false;
-    lens.style.display = "none";
+    zoomLens.lens.style.display = "none";
   });
 
   compare.addEventListener(
     "wheel",
     (e) => {
-      if (lens.style.display !== "block") return;
+      if (zoomLens.lens.style.display !== "block") return;
       e.preventDefault();
-      zoom = Math.max(
-        MIN_ZOOM,
-        Math.min(MAX_ZOOM, zoom + (e.deltaY > 0 ? -0.5 : 0.5)),
-      );
-      updateLens(lastCx, lastCy);
+      zoomLens.adjustZoom(e.deltaY);
     },
     { passive: false },
   );
+}
 
-  let leftLoaded = false,
-    rightLoaded = false;
+// Once both images have loaded: sets the initial 50/50 split and, if this
+// slider replaced a lightbox image, writes the current-vs-scraped
+// dimensions into the lightbox caption.
+function wireImageLoadCaption(
+  compare: HTMLDivElement,
+  leftImg: HTMLImageElement,
+  rightImg: HTMLImageElement,
+  setSlider: (frac: number) => void,
+) {
+  let leftLoaded = false;
+  let rightLoaded = false;
   function onLoad() {
     if (!leftLoaded || !rightLoaded) return;
     leftImg.style.width = `${compare.offsetWidth}px`;
@@ -334,11 +383,42 @@ export function buildSlider(existingSrc: string, scrapedSrc: string) {
   if (leftImg.complete) leftLoaded = true;
   if (rightImg.complete) rightLoaded = true;
   if (leftLoaded && rightLoaded) onLoad();
+}
+
+// BUG: the slider can currently move past the image, we should clamp it horizontally to whichever image is larger
+export function buildSlider(existingSrc: string, scrapedSrc: string) {
+  const { compare, leftClip, leftImg, rightImg, handle } = buildCompareShell(
+    existingSrc,
+    scrapedSrc,
+  );
+
+  const { setSlider, getCurrentPx } = wireDrag(
+    compare,
+    leftClip,
+    leftImg,
+    rightImg,
+    handle,
+  );
+
+  const zoomLens = buildZoomLens(
+    compare,
+    existingSrc,
+    scrapedSrc,
+    getCurrentPx,
+  );
+  compare.appendChild(zoomLens.lens);
+  compare.appendChild(zoomLens.lensToggle);
+  wireZoomLens(compare, zoomLens);
+
+  wireImageLoadCaption(compare, leftImg, rightImg, setSlider);
 
   return compare;
 }
 
-export function injectSliderIntoLightbox(existingSrc: string, scrapedSrc: any) {
+export function injectSliderIntoLightbox(
+  existingSrc: string,
+  scrapedSrc: string,
+) {
   const MAX_WAIT = 2000;
   const start = Date.now();
 
@@ -385,7 +465,10 @@ export function injectSliderIntoLightbox(existingSrc: string, scrapedSrc: any) {
   }, 30);
 }
 
-export function attachImageComparison(form: HTMLFormElement, scrapedSrc: any) {
+export function attachImageComparison(
+  form: HTMLFormElement,
+  scrapedSrc: string,
+) {
   form.querySelectorAll<HTMLImageElement>(".EditImages img").forEach((img) => {
     if (img.dataset.rescrapeCompare === "true") {
       const clone = img.cloneNode(true) as HTMLImageElement;

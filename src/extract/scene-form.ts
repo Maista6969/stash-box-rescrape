@@ -28,6 +28,12 @@ export function extractCurrentTags(form: Element): string[] {
   );
 }
 
+export function extractCurrentUrls(form: Element): string[] {
+  return Array.from(
+    form.querySelectorAll(".URLInput ul li .overflow-hidden"),
+  ).map((el) => el.textContent?.trim() ?? "");
+}
+
 export function extractCurrentStudioName(form: Element): string {
   return (
     form
@@ -86,7 +92,7 @@ export function extractSceneFormData(form: Element): SceneFormSnapshot {
     director: fieldValue(form, "director"),
     productionDate: fieldValue(form, "production_date"),
     tags: extractCurrentTags(form),
-    urls: [],
+    urls: extractCurrentUrls(form),
     images: [],
   };
 }

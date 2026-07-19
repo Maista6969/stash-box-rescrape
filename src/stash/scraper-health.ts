@@ -1,3 +1,5 @@
+import { gmRequest, type GraphQLError } from "../gm-request";
+
 const COMMUNITY_SCRAPERS_SOURCE_URL =
   "https://stashapp.github.io/CommunityScrapers/stable/index.yml";
 
@@ -65,50 +67,38 @@ export function evaluateScraperHealth(
     : { status: "update-available", pkg };
 }
 
-export function fetchInstalledScraperPackages(
+export async function fetchInstalledScraperPackages(
   endpoint: string,
   apiKey: string,
 ): Promise<RawInstalledPackage[]> {
-  return new Promise((resolve, reject) => {
-    GM_xmlhttpRequest({
-      method: "POST",
-      responseType: "json",
-      url: endpoint,
-      headers: { "Content-Type": "application/json", ApiKey: apiKey },
-      timeout: 10_000,
-      data: JSON.stringify({
-        query: `
+  const { status, response } = await gmRequest<{
+    data: { installedPackages: RawInstalledPackage[] };
+    errors?: GraphQLError[];
+  }>({
+    method: "POST",
+    responseType: "json",
+    url: endpoint,
+    headers: { "Content-Type": "application/json", ApiKey: apiKey },
+    timeout: 10_000,
+    data: JSON.stringify({
+      query: `
           query InstalledScraperPackagesStatus {
             installedPackages(type: Scraper) {
               ...PackageData
-              source_package { ...PackageData __typename }
-              __typename
+              source_package { ...PackageData }
             }
           }
           fragment PackageData on Package {
-            package_id name version date metadata sourceURL __typename
+            package_id name version date metadata sourceURL
           }
         `,
-      }),
-      onload: ({ status, response }) => {
-        if (status != 200) {
-          const errors = response.errors
-            .map((e: { message: string }) => e.message)
-            .join("\n");
-          return reject(
-            `Failed to fetch installed scraper packages: ${errors}`,
-          );
-        }
-        resolve(response.data.installedPackages as RawInstalledPackage[]);
-      },
-      onerror: (err) =>
-        reject(`Request error fetching installed packages: ${err}`),
-      ontimeout: () =>
-        reject(
-          `Timed out fetching installed scraper packages from ${endpoint}`,
-        ),
-    });
+    }),
   });
+  if (status != 200) {
+    const errors = response.errors?.map((e) => e.message).join("\n");
+    throw new Error(`Failed to fetch installed scraper packages: ${errors}`);
+  }
+  return response.data.installedPackages;
 }
 
 export async function checkScraperHealth(
@@ -127,42 +117,35 @@ export async function checkScraperHealth(
   return result;
 }
 
-export function triggerScraperPackageUpdate(
+export async function triggerScraperPackageUpdate(
   packageId: string,
   sourceURL: string,
   endpoint: string,
   apiKey: string,
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
-    GM_xmlhttpRequest({
-      method: "POST",
-      responseType: "json",
-      url: endpoint,
-      headers: { "Content-Type": "application/json", ApiKey: apiKey },
-      timeout: 10_000,
-      data: JSON.stringify({
-        query: `
+  const { status, response } = await gmRequest<{
+    data: { updatePackages: string };
+    errors?: GraphQLError[];
+  }>({
+    method: "POST",
+    responseType: "json",
+    url: endpoint,
+    headers: { "Content-Type": "application/json", ApiKey: apiKey },
+    timeout: 10_000,
+    data: JSON.stringify({
+      query: `
           mutation UpdateScraperPackages($packages: [PackageSpecInput!]!) {
             updatePackages(type: Scraper, packages: $packages)
           }
         `,
-        variables: { packages: [{ id: packageId, sourceURL }] },
-      }),
-      onload: ({ status, response }) => {
-        if (status != 200) {
-          const errors = response.errors
-            .map((e: { message: string }) => e.message)
-            .join("\n");
-          return reject(`Failed to trigger scraper package update: ${errors}`);
-        }
-        resolve(response.data.updatePackages as string);
-      },
-      onerror: (err) =>
-        reject(`Request error triggering package update: ${err}`),
-      ontimeout: () =>
-        reject(`Timed out triggering scraper package update on ${endpoint}`),
-    });
+      variables: { packages: [{ id: packageId, sourceURL }] },
+    }),
   });
+  if (status != 200) {
+    const errors = response.errors?.map((e) => e.message).join("\n");
+    throw new Error(`Failed to trigger scraper package update: ${errors}`);
+  }
+  return response.data.updatePackages;
 }
 
 export function pollScraperUpdateJob(
@@ -195,8 +178,7 @@ export function pollScraperUpdateJob(
         query: `
           query FindJob($input: FindJobInput!) {
             findJob(input: $input) {
-              id status subTasks description progress
-              startTime endTime addTime error __typename
+              id status error
             }
           }
         `,
@@ -282,6 +264,10 @@ export async function resolveScraperFailureAction(
     }
     return { kind: "none" };
   } catch (err) {
+    console.error(
+      `[rescrape] Scraper health check failed for "${scraperName}":`,
+      err,
+    );
     return { kind: "none" };
   }
 }
@@ -318,7 +304,7 @@ export function buildBrokenScraperReportURL(params: {
     ["scraper-type", scraperType],
     [
       "scraper-specific-examples",
-      `Tried scraping ${params.url} at ${formatUTCTimestamp(params.now)}`,
+      `Tried scraping \`${params.url}\` at ${formatUTCTimestamp(params.now)}`,
     ],
     [
       "additional-details",

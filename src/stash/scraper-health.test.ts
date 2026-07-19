@@ -8,6 +8,21 @@ import {
   pollScraperUpdateJob,
 } from "./scraper-health";
 
+// Mocking the ambient Tampermonkey global: its real type is a complex
+// generic overloaded declaration not worth reproducing here.
+type MockGMHandlers = {
+  onload?: (res: { status: number; response: unknown }) => void;
+  onerror?: (err: unknown) => void;
+};
+
+function mockGMRequest(impl: (handlers: MockGMHandlers) => void) {
+  const mock = vi.fn(impl);
+  (
+    globalThis as unknown as { GM_xmlhttpRequest: typeof mock }
+  ).GM_xmlhttpRequest = mock;
+  return mock;
+}
+
 const reptyleOutOfDate = {
   package_id: "Reptyle",
   name: "Reptyle",
@@ -117,8 +132,7 @@ describe("resolveScraperFailureAction", () => {
   });
 
   it("skips straight to report-bug for remote mode without making any network call", async () => {
-    const gmMock = vi.fn();
-    (globalThis as any).GM_xmlhttpRequest = gmMock;
+    const gmMock = mockGMRequest(() => {});
 
     const action = await resolveScraperFailureAction(
       "Reptyle",
@@ -136,8 +150,8 @@ describe("resolveScraperFailureAction", () => {
   });
 
   it("resolves to update for local mode when an update is available", async () => {
-    (globalThis as any).GM_xmlhttpRequest = vi.fn(({ onload }: any) => {
-      onload({
+    mockGMRequest(({ onload }) => {
+      onload!({
         status: 200,
         response: { data: { installedPackages: [reptyleOutOfDate] } },
       });
@@ -161,8 +175,8 @@ describe("resolveScraperFailureAction", () => {
         version: "19bf5bf7",
       },
     };
-    (globalThis as any).GM_xmlhttpRequest = vi.fn(({ onload }: any) => {
-      onload({
+    mockGMRequest(({ onload }) => {
+      onload!({
         status: 200,
         response: { data: { installedPackages: [upToDate] } },
       });
@@ -182,8 +196,12 @@ describe("resolveScraperFailureAction", () => {
   });
 
   it("degrades to none when the health check itself fails", async () => {
-    (globalThis as any).GM_xmlhttpRequest = vi.fn(({ onerror }: any) => {
-      onerror("network error");
+    // resolveScraperFailureAction logs this failure before degrading -
+    // suppress it so a real network error doesn't spam the test output,
+    // and confirm it actually happened
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockGMRequest(({ onerror }) => {
+      onerror!("network error");
     });
 
     const action = await resolveScraperFailureAction(
@@ -193,6 +211,7 @@ describe("resolveScraperFailureAction", () => {
       "key",
     );
     expect(action).toEqual({ kind: "none" });
+    expect(errorSpy).toHaveBeenCalledOnce();
   });
 });
 
@@ -230,7 +249,7 @@ describe("buildBrokenScraperReportURL", () => {
         "package-name=Minnano-AV%20(EN)&" +
         "package-version=cd51adbb&" +
         "scraper-type=sceneByURL&" +
-        "scraper-specific-examples=Tried%20scraping%20https%3A%2F%2Fexample.com%2Fscenes%2F1%3Fref%3Da%26b%3D2%20at%202026-07-14%2020%3A24%20UTC&" +
+        "scraper-specific-examples=Tried%20scraping%20%60https%3A%2F%2Fexample.com%2Fscenes%2F1%3Fref%3Da%26b%3D2%60%20at%202026-07-14%2020%3A24%20UTC&" +
         "additional-details=Bug%20report%20opened%20by%20%5Bstash-box%20rescrape%5D(https%3A%2F%2Fwww.stash-box-rescrape.com)%20version%200.1.0%0A" +
         "Detected%20scraper%20type%3A%20sceneByURL%20(select%20this%20above%20if%20it%20isn't%20already%20chosen)",
     );
@@ -269,10 +288,10 @@ describe("pollScraperUpdateJob", () => {
 
   it("resolves ok once the job status becomes FINISHED", async () => {
     let callCount = 0;
-    (globalThis as any).GM_xmlhttpRequest = vi.fn(({ onload }: any) => {
+    mockGMRequest(({ onload }) => {
       callCount += 1;
       const status = callCount < 3 ? "RUNNING" : "FINISHED";
-      onload({
+      onload!({
         status: 200,
         response: { data: { findJob: { status, error: null } } },
       });
@@ -288,13 +307,12 @@ describe("pollScraperUpdateJob", () => {
   });
 
   it("resolves not-ok and stops polling once the timeout is reached", async () => {
-    const gmMock = vi.fn(({ onload }: any) => {
-      onload({
+    const gmMock = mockGMRequest(({ onload }) => {
+      onload!({
         status: 200,
         response: { data: { findJob: { status: "RUNNING", error: null } } },
       });
     });
-    (globalThis as any).GM_xmlhttpRequest = gmMock;
 
     const promise = pollScraperUpdateJob("job-1", "endpoint", "key", {
       intervalMs: 500,
@@ -312,8 +330,8 @@ describe("pollScraperUpdateJob", () => {
   });
 
   it("resolves not-ok when the job reports an error", async () => {
-    (globalThis as any).GM_xmlhttpRequest = vi.fn(({ onload }: any) => {
-      onload({
+    mockGMRequest(({ onload }) => {
+      onload!({
         status: 200,
         response: { data: { findJob: { status: "RUNNING", error: "boom" } } },
       });

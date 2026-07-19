@@ -15,15 +15,15 @@ import {
   fetchPerformerAliases,
   fetchTagAliases,
 } from "./stashbox/graphql";
-import { extractPerformerFormData } from "./extract/performer-form";
 import { extractSceneFormData } from "./extract/scene-form";
-import { reloadScraperPatterns } from "./scraper-dispatch";
+import { extractPerformerFormData } from "./extract/performer-form";
+import { reloadScraperPatterns, getScraperPatterns } from "./scraper-dispatch";
 import { showConfigMenu } from "./config-menu";
 import { initEditcardRescrape } from "./edit-card/verify";
 import { initEditPageRescrape } from "./edit-page/inject";
 import { watchPanelForResetMenuCommand } from "./edit-page/panel";
 
-// @ts-ignore
+// @ts-expect-error unsafeWindow's ambient type doesn't know about our custom property
 unsafeWindow.rescrape = {
   extractPerformerFormData,
   extractSceneFormData,
@@ -40,10 +40,17 @@ GM_addStyle(css);
 GM_registerMenuCommand("⚙️ Configure", showConfigMenu);
 
 async function initialize() {
-  try {
-    await reloadScraperPatterns();
-  } catch (error) {
-    console.error("Failed to initialize scraper patterns:", error);
+  await reloadScraperPatterns();
+
+  // reloadScraperPatterns() already warned the user; nothing left to do
+  // since none of the rescrape features below could ever trigger
+  const { sceneScraperPatterns, performerScraperPatterns } =
+    getScraperPatterns();
+  if (
+    sceneScraperPatterns.length === 0 &&
+    performerScraperPatterns.length === 0
+  ) {
+    return;
   }
 
   // Edit-card rescrape icons (edit queue and edits tab)

@@ -1,5 +1,6 @@
 import { loadConfig, saveConfig } from "../config";
 import type { FieldStatus } from "../compare/compare";
+import { makeSetLink } from "../ui/dom";
 
 function applySavedPanelLayout(panel: HTMLDivElement) {
   const { panelPosition, panelSize } = loadConfig();
@@ -117,13 +118,34 @@ export function createResultPanel(form: HTMLFormElement, scraperName?: string) {
 
   const title = document.createElement("div");
   title.className = "editpage-panel-title";
-  title.textContent = scraperName
+
+  const titleText = document.createElement("span");
+  titleText.className = "editpage-panel-title-text";
+  titleText.textContent = scraperName
     ? `Rescraped using ${scraperName}`
     : "Rescraped";
+  title.appendChild(titleText);
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "editpage-panel-close";
+  closeBtn.textContent = "×";
+  closeBtn.title = "Close";
+  closeBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
+  closeBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    panel.remove();
+  });
+  title.appendChild(closeBtn);
+
   panel.appendChild(title);
 
+  const body = document.createElement("div");
+  body.className = "editpage-panel-body";
+  panel.appendChild(body);
+
   const dl = document.createElement("dl");
-  panel.appendChild(dl);
+  body.appendChild(dl);
 
   form.appendChild(panel);
   applySavedPanelLayout(panel);
@@ -146,7 +168,7 @@ export function showPanelError(form: HTMLFormElement, message: string | null) {
   err.style.cssText =
     "margin-top:.4rem;color:#ef4444;font-size:.75rem;word-break:break-word;white-space:pre-wrap;";
   err.textContent = message;
-  panel.appendChild(err);
+  panel.querySelector(".editpage-panel-body")!.appendChild(err);
 }
 
 export type BodyBuilder = (body: HTMLDivElement, summary: HTMLElement) => void;
@@ -200,4 +222,26 @@ export function markDone(details: HTMLDetailsElement, badge: HTMLSpanElement) {
   );
   details.classList.add("editpage-match");
   if (badge) badge.textContent = "(done ✓)";
+}
+
+export type RowAction = {
+  performAdd: () => Promise<unknown>;
+  markRowDone: () => void;
+};
+
+// Renders a single "add all" link (only when there's more than one
+// addable row) that runs every row's performAdd/markRowDone in sequence.
+export function renderAddableRows(
+  summary: HTMLElement,
+  rowActions: RowAction[],
+) {
+  if (rowActions.length <= 1) return;
+  const addAllLink = makeSetLink("add all", async () => {
+    for (const { performAdd, markRowDone } of rowActions) {
+      await performAdd();
+      markRowDone();
+    }
+    addAllLink.remove();
+  });
+  summary.appendChild(addAllLink);
 }

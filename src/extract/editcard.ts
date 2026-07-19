@@ -5,16 +5,22 @@ export type EditClassification = {
   objectType: string;
 };
 
+export type PerformerCredit = {
+  name: string;
+  alias: string | null;
+};
+
 // Extracted from the rendered page instead of making an extra GraphQL query
 // can be extracted from the either an edit page or an editcard in the queue
 export type StashBoxScene = {
   title: string;
   date: string | null;
   duration: string | null;
-  performers: string[];
+  performers: PerformerCredit[];
   studio: string | null;
   urls: string[];
   code: string | null;
+  director: string | null;
   details: string | null;
   tags: string[];
   image: SizedImage | null;
@@ -28,7 +34,11 @@ export type StashBoxPerformer = {
   disambiguation: string | null;
   aliases: string[];
   gender:
-    "Male" | "Female" | "Transgender Male" | "Transgender Female" | "Nonbinary";
+    | "Male"
+    | "Female"
+    | "Transgender Male"
+    | "Transgender Female"
+    | "Nonbinary";
   birthDate: string | null;
   deathDate: string | null;
   eye_color: string | null;
@@ -110,6 +120,31 @@ function textContentOf(elem: Element | null): string {
   return elem?.textContent?.trim() ?? "";
 }
 
+// Only the outer <small>'s own text, e.g. "(Charles Dera)" - excludes any
+// nested <small> stash-box uses for a disambiguation suffix, so a credited
+// performer with a disambiguation doesn't glom the two together
+function directTextOf(elem: Element): string {
+  return Array.from(elem.childNodes)
+    .filter((node) => node.nodeType === Node.TEXT_NODE)
+    .map((node) => node.textContent ?? "")
+    .join("")
+    .trim();
+}
+
+function extractPerformerCredits(editCard: Element): PerformerCredit[] {
+  const links = editCard.querySelectorAll(".ListChangeRow-Performers li a");
+  return Array.from(links).map((link) => {
+    const displayName = textContentOf(link.querySelector("span"));
+    const small = link.querySelector("small");
+    const parenthetical = small
+      ? directTextOf(small)
+          .replace(/^\(|\)$/g, "")
+          .trim()
+      : "";
+    return { name: displayName, alias: parenthetical || null };
+  });
+}
+
 export function extractFingerprintTypes(editCard: Element): string[] {
   const links = editCard.querySelectorAll(".ListChangeRow-Fingerprints li a");
   return Array.from(links)
@@ -125,13 +160,12 @@ export function extractSceneEditCardData(editCard: Element): StashBoxScene {
     title: getEditDiffContent(findRowByLabel(editCard, "Title")) ?? "",
     date: getEditDiffContent(findRowByLabel(editCard, "Date")),
     duration: getEditDiffContent(findRowByLabel(editCard, "Duration")),
-    performers: Array.from(
-      editCard.querySelectorAll(".ListChangeRow-Performers li a span"),
-    ).map(textContentOf),
+    performers: extractPerformerCredits(editCard),
     studio: studioRow ? textContentOf(studioRow) : null,
     urls: extractURLsFromEditCard(editCard),
     details: getEditDiffContent(findRowByLabel(editCard, "Details")),
     code: getEditDiffContent(findRowByLabel(editCard, "Studio Code")),
+    director: getEditDiffContent(findRowByLabel(editCard, "Director")),
     tags: Array.from(editCard.querySelectorAll(".ListChangeRow-Tags li a")).map(
       textContentOf,
     ),
@@ -165,7 +199,7 @@ export function extractPerformerEditCardData(
       .filter(Boolean),
     gender: row("Gender") as StashBoxPerformer["gender"],
     birthDate: row("Birthdate"),
-    deathDate: row("Death Date"),
+    deathDate: row("Deathdate"),
     eye_color: row("Eye Color"),
     hair_color: row("Hair Color"),
     height: row("Height"),

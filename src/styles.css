@@ -98,17 +98,31 @@
 .rescrape-additional {
   color: var(--scraped-additional);
 }
+.rescrape-ambiguous-candidates {
+  list-style: none;
+  margin: 0.2rem 0 0;
+  padding-left: 0.8rem;
+}
+.rescrape-ambiguous-candidates li {
+  font-weight: normal;
+}
+.rescrape-ambiguous-candidates small {
+  opacity: 0.7;
+}
 .rescrape-value-row {
   display: flex;
   align-items: flex-start;
   gap: 0.4rem;
   flex-wrap: wrap;
 }
-.rescrape-studio-compare {
-  align-items: baseline;
-}
 .rescrape-arrow {
+  width: 0.85em;
+  height: 0.85em;
+  flex-shrink: 0;
   opacity: 0.6;
+}
+.rescrape-studio-compare {
+  align-items: center;
 }
 .text-center.rescrape-value-row {
   justify-content: center;
@@ -121,7 +135,6 @@
   flex-wrap: wrap;
 }
 .rescrape-performers-column {
-  flex: 1 1 auto;
   min-width: 10rem;
 }
 .rescrape-performers-scraped {
@@ -158,6 +171,18 @@
 .rescrape-scraped-image.additional {
   border-color: var(--scraped-additional);
 }
+.rescrape-no-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--scraped-additional);
+  background: rgba(249, 115, 22, 0.08);
+}
+.rescrape-no-image-icon {
+  width: 40%;
+  max-width: 3rem;
+  opacity: 0.8;
+}
 .rescrape-url-item {
   display: flex;
   align-items: baseline;
@@ -176,10 +201,27 @@
   margin-bottom: 0.75rem;
 }
 .editcard-inline-diff {
-  margin-top: 0.25rem;
+  /* Matches stash-box's own .EditDiff box model exactly (padding,
+     white-space, no margin) so toggling between the two never changes
+     the row's height */
   padding: 0.25rem 0.5rem;
-  background: rgba(255, 255, 255, 0.04);
+  white-space: pre-wrap;
+  /* outline instead of border: it's painted outside the box without taking
+     up layout space, so it can't shift anything even when the original
+     content's own box model (e.g. stash-box's .EditDiff) doesn't match */
+  outline: 1px dashed var(--scraped-mismatch);
+  outline-offset: -1px;
   border-radius: var(--bs-border-radius, 0.3rem);
+}
+.editcard-inline-diff.missing,
+.editcard-inline-diff.additional {
+  outline-color: var(--scraped-additional);
+}
+.editcard-inline-diff.approx {
+  outline-color: var(--scraped-approximate);
+}
+.rescrape-added-row .editcard-field-status {
+  color: var(--scraped-mismatch);
 }
 .diff-added {
   background-color: var(--diff-added);
@@ -203,18 +245,45 @@
   min-height: 6rem;
   max-width: 90vw;
   resize: both;
-  overflow: auto;
+  overflow: hidden;
   z-index: 1000;
   font-family: var(--bs-font-sans-serif, system-ui, sans-serif);
   background: var(--bs-dark);
   border: 1px solid #4a6070;
   border-radius: var(--bs-border-radius, 0.3rem);
-  padding: 0.5rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+}
+.editpage-panel-body {
+  flex: 1 1 auto;
+  /* Without this a flex item won't shrink below its content's natural
+     height, so overflow:auto here would never actually kick in. */
+  min-height: 0;
+  overflow: auto;
+  padding: 0 0.5rem 0.5rem;
 }
 .editpage-panel-title {
   font-size: 1rem;
   font-weight: 700;
-  margin-bottom: 0.4rem;
+}
+.editpage-panel-title-text {
+  flex: 1;
+}
+.editpage-panel-close {
+  flex-shrink: 0;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.1rem 0.3rem;
+  border-radius: var(--bs-border-radius, 0.3rem);
+  opacity: 0.6;
+}
+.editpage-panel-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.12);
 }
 .editpage-panel-draggable {
   cursor: grab;
@@ -223,10 +292,14 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin: -0.5rem -0.5rem 0.4rem;
+  /* Sits outside .editpage-panel-body's scrollport as a plain flex sibling,
+     so it never needs to scroll (or fake not scrolling) at all. */
+  flex-shrink: 0;
+  margin: 0;
   padding: 0.5rem;
   border-radius: var(--bs-border-radius, 0.3rem) var(--bs-border-radius, 0.3rem)
     0 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
 }
 .editpage-panel-draggable:hover {

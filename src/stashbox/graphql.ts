@@ -1,3 +1,5 @@
+import { gmRequest, type GraphQLError } from "../gm-request";
+
 export type AliasInfo = {
   canonical: string;
   aliases: string[];
@@ -19,28 +21,32 @@ type SearchMap<T> = {
   [key: `search_${number}`]: T | null;
 };
 
-function stashboxQuery<T>(query: string, variables = {}): Promise<T> {
+function toAliasInfo(hit: NameResult): AliasInfo {
+  return {
+    id: hit.id,
+    canonical: hit.name,
+    aliases: (hit.aliases ?? []).map((a) => a.trim()),
+  };
+}
+
+async function stashboxQuery<T>(query: string, variables = {}): Promise<T> {
   const endpoint = window.location.origin + "/graphql";
-  return new Promise((resolve, reject) => {
-    GM_xmlhttpRequest({
-      method: "POST",
-      url: endpoint,
-      responseType: "json",
-      headers: { "Content-Type": "application/json" },
-      data: JSON.stringify({ query, variables }),
-      onload: ({ status, response }) => {
-        if (status !== 200 || response.errors) {
-          const msg =
-            response?.errors
-              ?.map((e: { message: any }) => e.message)
-              .join("; ") ?? `HTTP ${status}`;
-          return reject(new Error(`StashDB query failed: ${msg}`));
-        }
-        resolve(response.data);
-      },
-      onerror: (err) => reject(new Error(`Stash-box request error: ${err}`)),
-    });
+  const { status, response } = await gmRequest<{
+    data: T;
+    errors?: GraphQLError[];
+  }>({
+    method: "POST",
+    url: endpoint,
+    responseType: "json",
+    headers: { "Content-Type": "application/json" },
+    data: JSON.stringify({ query, variables }),
   });
+  if (status !== 200 || response.errors) {
+    const msg =
+      response?.errors?.map((e) => e.message).join("; ") ?? `HTTP ${status}`;
+    throw new Error(`StashDB query failed: ${msg}`);
+  }
+  return response.data;
 }
 
 type StudioQueryResult = ExactMap<NameResult> &
@@ -81,22 +87,14 @@ export function parseStudioAliasResponse(
     const searchResults = data[`search_${i}`]?.studios ?? [];
     // Happy path, the name is a perfect match
     if (exact) {
-      result.set(name, {
-        id: exact.id,
-        canonical: exact.name,
-        aliases: (exact.aliases ?? []).map((a: string) => a.trim()),
-      });
+      result.set(name, toAliasInfo(exact));
     } else if (searchResults.length) {
       const nameLower = name.toLowerCase().trim();
       const aliasMatch = searchResults.find(({ aliases }) =>
         aliases.some((a: string) => a.toLowerCase().trim() === nameLower),
       );
       if (aliasMatch) {
-        result.set(name, {
-          id: aliasMatch.id,
-          canonical: aliasMatch.name,
-          aliases: aliasMatch.aliases.map((a: string) => a.trim()),
-        });
+        result.set(name, toAliasInfo(aliasMatch));
       }
     }
   });
@@ -141,11 +139,7 @@ export function parseTagAliasResponse(
       return;
     }
 
-    result.set(name, {
-      id: hit.id,
-      canonical: hit.name,
-      aliases: (hit.aliases ?? []).map((a: string) => a.trim()),
-    });
+    result.set(name, toAliasInfo(hit));
   });
   return result;
 }
@@ -158,7 +152,11 @@ export async function fetchTagAliases(
   return parseTagAliasResponse(names, data);
 }
 
-type PerformerQueryResult = SearchMap<{ performers: NameResult[] }>;
+type PerformerSearchResult = NameResult & {
+  disambiguation: string | null;
+};
+
+type PerformerQueryResult = SearchMap<{ performers: PerformerSearchResult[] }>;
 
 export function buildPerformerAliasQuery(names: string[]): string {
   const fields = names
@@ -169,6 +167,7 @@ export function buildPerformerAliasQuery(names: string[]): string {
         id
         name
         aliases
+        disambiguation
         deleted
       }
     }
@@ -178,35 +177,50 @@ export function buildPerformerAliasQuery(names: string[]): string {
   return `{ ${fields} }`;
 }
 
+export type PerformerCandidate = {
+  id: string;
+  name: string;
+  disambiguation: string | null;
+};
+
+export type PerformerAliasInfo = AliasInfo & {
+  candidates?: PerformerCandidate[];
+};
+
 export function parsePerformerAliasResponse(
   names: string[],
   data: PerformerQueryResult,
-): Map<string, AliasInfo> {
-  const result = new Map<string, AliasInfo>();
+): Map<string, PerformerAliasInfo> {
+  const result = new Map<string, PerformerAliasInfo>();
   names.forEach((name, i) => {
     const hits = data[`search_${i}`]?.performers ?? [];
     const nameLower = name.toLowerCase().trim();
-    const match = hits.find(
+    const matches = hits.filter(
       (p) =>
         p.name.toLowerCase().trim() === nameLower ||
         (p.aliases ?? []).some(
           (a: string) => a.toLowerCase().trim() === nameLower,
         ),
     );
-    if (match) {
-      result.set(name, {
-        id: match.id,
-        canonical: match.name,
-        aliases: (match.aliases ?? []).map((a: string) => a.trim()),
-      });
-    }
+    if (!matches.length) return;
+
+    result.set(name, {
+      ...toAliasInfo(matches[0]),
+      ...(matches.length > 1 && {
+        candidates: matches.map((m) => ({
+          id: m.id,
+          name: m.name,
+          disambiguation: m.disambiguation,
+        })),
+      }),
+    });
   });
   return result;
 }
 
 export async function fetchPerformerAliases(
   names: string[],
-): Promise<Map<string, AliasInfo>> {
+): Promise<Map<string, PerformerAliasInfo>> {
   if (!names.length) return new Map();
   const data = await stashboxQuery<PerformerQueryResult>(
     buildPerformerAliasQuery(names),

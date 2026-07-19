@@ -1,7 +1,13 @@
-import type { AliasInfo } from "../stashbox/graphql";
+import type {
+  AliasInfo,
+  PerformerAliasInfo,
+  PerformerCandidate,
+} from "../stashbox/graphql";
 import { compareLoose, type CompareResult, type FieldStatus } from "./compare";
 
 const normalize = (name: string) => name.toLowerCase().trim();
+
+const stripSpacing = (name: string) => name.trim().replace(/\s+/g, "");
 
 // When a scraped entity (performer, tag or studio) already exists
 // on the stash-box scene, either via its canonical name or through an alias
@@ -39,6 +45,14 @@ export type MissingEntity = {
   canonical: string;
 };
 
+// A scraped name matched more than one performer like with Nicole Sweet
+// we cannot tell which one is correct so we show a list of links to make
+// it easier for the reviewer to decide which, if any, is the correct match
+export type AmbiguousEntity = {
+  scraped: string;
+  candidates: PerformerCandidate[];
+};
+
 export type PerformerMatchResult = {
   // Scraped performers already on the list, matched by name or a known alias
   alreadyPresentPerformers: MatchedEntity[];
@@ -46,17 +60,20 @@ export type PerformerMatchResult = {
   missingPerformers: MissingEntity[];
   // Scraped performer names the stash-box has no record of at all
   unknownPerformers: string[];
+  // Scraped performer names that matched more than one stash-box performer
+  ambiguousPerformers: AmbiguousEntity[];
 };
 
 export function matchPerformers(
   scrapedPerformers: string[],
   currentPerformers: string[],
-  aliasMap: Map<string, AliasInfo>,
+  aliasMap: Map<string, PerformerAliasInfo>,
 ): PerformerMatchResult {
   const result: PerformerMatchResult = {
     alreadyPresentPerformers: [],
     missingPerformers: [],
     unknownPerformers: [],
+    ambiguousPerformers: [],
   };
 
   for (const scrapedName of scrapedPerformers) {
@@ -66,6 +83,19 @@ export function matchPerformers(
       result.alreadyPresentPerformers.push({
         scraped: scrapedName,
         canonical: exactMatch,
+        via: "name",
+      });
+      continue;
+    }
+
+    // Nearly exact if we disregard whitespace
+    const spacingMatch = currentPerformers.find(
+      (cp) => stripSpacing(cp) === stripSpacing(scrapedName),
+    );
+    if (spacingMatch) {
+      result.alreadyPresentPerformers.push({
+        scraped: scrapedName,
+        canonical: spacingMatch,
         via: "name",
       });
       continue;
@@ -159,12 +189,28 @@ export function matchPerformers(
       }
     }
 
-    // Finally, a genuinely missing performer
-    if (scrapedEntry) {
-      result.missingPerformers.push({
+    // Finally, a genuinely missing performer - unless the name matched more
+    // than one stash-box performer, in which case we can't confidently say
+    // which one is missing
+    if (scrapedEntry?.candidates) {
+      result.ambiguousPerformers.push({
         scraped: scrapedName,
-        canonical: scrapedEntry.canonical,
+        candidates: scrapedEntry.candidates,
       });
+    } else if (scrapedEntry) {
+      // We cannot trust alias matches here since aliases are not unique
+      const isPrimaryNameMatch =
+        normalize(scrapedEntry.canonical) === normalize(scrapedName);
+      const isUncorroboratedBareAlias =
+        !isPrimaryNameMatch && !/\s/.test(scrapedName.trim());
+      if (isUncorroboratedBareAlias) {
+        result.unknownPerformers.push(scrapedName);
+      } else {
+        result.missingPerformers.push({
+          scraped: scrapedName,
+          canonical: scrapedEntry.canonical,
+        });
+      }
     } else {
       // Or we have no idea who this could be
       result.unknownPerformers.push(scrapedName);
@@ -176,8 +222,8 @@ export function matchPerformers(
 
 export function mergeSceneAliases(
   currentPerformers: { name: string; alias?: string | null }[],
-  aliasMap: Map<string, AliasInfo>,
-): Map<string, AliasInfo> {
+  aliasMap: Map<string, PerformerAliasInfo>,
+): Map<string, PerformerAliasInfo> {
   const merged = new Map(aliasMap);
   for (const { name, alias } of currentPerformers) {
     const sceneAlias = alias?.trim();
@@ -341,7 +387,8 @@ export type PerformerRowViewModel =
       isUnregisteredSceneAlias: boolean;
     }
   | { kind: "missing"; scraped: string; canonicalName: string }
-  | { kind: "unknown"; scraped: string };
+  | { kind: "unknown"; scraped: string }
+  | { kind: "ambiguous"; scraped: string; candidates: PerformerCandidate[] };
 
 // Sometimes we can recognize a performer if they're mentioned in the title / details
 export type UnmatchedCurrentPerformer = {
@@ -359,7 +406,7 @@ export type PerformerRowsResult = {
 export function computePerformerRows(
   currentPerformers: { name: string; aliasInputValue: string | null }[],
   scrapedPerformers: string[],
-  aliasMap: Map<string, AliasInfo>,
+  aliasMap: Map<string, PerformerAliasInfo>,
   title: string | null | undefined,
   details: string | null | undefined,
 ): PerformerRowsResult {
@@ -368,12 +415,16 @@ export function computePerformerRows(
     aliasMap,
   );
 
-  const { alreadyPresentPerformers, missingPerformers, unknownPerformers } =
-    matchPerformers(
-      scrapedPerformers,
-      currentPerformers.map((p) => p.name),
-      sceneAwareAliasMap,
-    );
+  const {
+    alreadyPresentPerformers,
+    missingPerformers,
+    unknownPerformers,
+    ambiguousPerformers,
+  } = matchPerformers(
+    scrapedPerformers,
+    currentPerformers.map((p) => p.name),
+    sceneAwareAliasMap,
+  );
 
   const currentByName = new Map(currentPerformers.map((p) => [p.name, p]));
 
@@ -396,15 +447,26 @@ export function computePerformerRows(
         isUnregisteredSceneAlias,
       };
     }),
-    ...missingPerformers.map((r): PerformerRowViewModel => ({
-      kind: "missing",
-      scraped: r.scraped,
-      canonicalName: r.canonical,
-    })),
-    ...unknownPerformers.map((name): PerformerRowViewModel => ({
-      kind: "unknown",
-      scraped: name,
-    })),
+    ...missingPerformers.map(
+      (r): PerformerRowViewModel => ({
+        kind: "missing",
+        scraped: r.scraped,
+        canonicalName: r.canonical,
+      }),
+    ),
+    ...unknownPerformers.map(
+      (name): PerformerRowViewModel => ({
+        kind: "unknown",
+        scraped: name,
+      }),
+    ),
+    ...ambiguousPerformers.map(
+      (r): PerformerRowViewModel => ({
+        kind: "ambiguous",
+        scraped: r.scraped,
+        candidates: r.candidates,
+      }),
+    ),
   ];
 
   const matchedNames = new Set(
@@ -420,7 +482,8 @@ export function computePerformerRows(
   const hasUncertainMatches = alreadyPresentPerformers.some(
     (r) => r.via === "alias" || r.via === "guess",
   );
-  const hasMissing = missingPerformers.length > 0;
+  const hasMissing =
+    missingPerformers.length > 0 || ambiguousPerformers.length > 0;
   const hasExtra = unknownPerformers.length > 0;
   const overallStatus = hasMissing
     ? ("diff" as const)
@@ -446,7 +509,8 @@ export type AlignedPerformerRow =
       scraped: string;
       canonical: string | null;
       isAlias: boolean;
-    };
+    }
+  | { kind: "ambiguous"; scraped: string; candidates: PerformerCandidate[] };
 
 export function computePerformerAlignment(
   originalNames: string[],
@@ -455,8 +519,12 @@ export function computePerformerAlignment(
   title: string | null | undefined,
   details: string | null | undefined,
 ): AlignedPerformerRow[] {
-  const { alreadyPresentPerformers, missingPerformers, unknownPerformers } =
-    matchResult;
+  const {
+    alreadyPresentPerformers,
+    missingPerformers,
+    unknownPerformers,
+    ambiguousPerformers,
+  } = matchResult;
 
   const matchByCanonical = new Map(
     alreadyPresentPerformers.map((r) => [r.canonical, r]),
@@ -465,6 +533,9 @@ export function computePerformerAlignment(
     ...missingPerformers.map((m) => [m.scraped, m.canonical] as const),
     ...unknownPerformers.map((name) => [name, null] as const),
   ]);
+  const candidatesByScraped = new Map(
+    ambiguousPerformers.map((a) => [a.scraped, a.candidates] as const),
+  );
 
   const usedScrapedNames = new Set<string>();
   const alignedRows: AlignedPerformerRow[] = [];
@@ -489,6 +560,11 @@ export function computePerformerAlignment(
   }
   for (const name of scrapedNames) {
     if (usedScrapedNames.has(name)) continue;
+    const candidates = candidatesByScraped.get(name);
+    if (candidates) {
+      alignedRows.push({ kind: "ambiguous", scraped: name, candidates });
+      continue;
+    }
     const canonical = canonicalByScraped.get(name) ?? null;
     alignedRows.push({
       kind: "extra",
@@ -543,10 +619,14 @@ export function relaxStudioComparison(
   scrapedName: string | null | undefined,
   initial: CompareResult,
 ): CompareResult {
-  if (initial.status === "match" || !currentName || !scrapedName) {
-    return initial;
-  }
-  const stripped = stripStudioParentAnnotation(currentName);
-  if (stripped === currentName.trim()) return initial;
-  return compareLoose(stripped, scrapedName);
+  const result = (() => {
+    if (initial.status === "match" || !currentName || !scrapedName) {
+      return initial;
+    }
+    const stripped = stripStudioParentAnnotation(currentName);
+    if (stripped === currentName.trim()) return initial;
+    return compareLoose(stripped, scrapedName);
+  })();
+
+  return result.status === "approx" ? { status: "match" } : result;
 }

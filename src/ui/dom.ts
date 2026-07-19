@@ -26,6 +26,13 @@ export function flashField(el: Element) {
   setTimeout(() => el.classList.remove("editpage-flash"), 1500);
 }
 
+// React bootstrap typeahead menus don't close on blur so we pretend to hit Esc
+export function closeTypeaheadMenu(input: HTMLInputElement) {
+  const eventInit = { key: "Escape", code: "Escape", bubbles: true };
+  input.dispatchEvent(new KeyboardEvent("keydown", eventInit));
+  input.dispatchEvent(new KeyboardEvent("keyup", eventInit));
+}
+
 export function findMatchingOption(
   select: HTMLSelectElement,
   raw: string,
@@ -74,6 +81,23 @@ export function makeSetLink(label: string | null, applyFn: ApplyFunction) {
     applyFn();
   });
   return a;
+}
+
+// Wires a click-to-toggle: clicking `trigger` flips an open/closed boolean
+// and re-invokes `onToggle` with the new state (also called once up front
+// with `initiallyOpen` to apply the starting state).
+export function makeToggle(
+  trigger: HTMLElement,
+  initiallyOpen: boolean,
+  onToggle: (open: boolean) => void,
+) {
+  let open = initiallyOpen;
+  onToggle(open);
+  trigger.onclick = (event: { stopPropagation: () => void }) => {
+    event.stopPropagation();
+    open = !open;
+    onToggle(open);
+  };
 }
 
 export function waitForReactSelectOption(

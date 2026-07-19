@@ -54,6 +54,23 @@ describe("extractSceneEditCardData against a real 'create scene' EditCard", () =
     expect(data.code).toBeNull();
   });
 
+  it("extracts null for director when this scene has no Director row", () => {
+    expect(data.director).toBeNull();
+  });
+
+  it("extracts the director when a Director row is present", () => {
+    const doc = documentFromHTML(`
+      <div class="EditCard">
+        <div class="mb-2 row">
+          <b class="col-2 text-end pt-1">Director</b>
+          <div class="col-10"><div class="EditDiff">Jane Director</div></div>
+        </div>
+      </div>
+    `);
+    const result = extractSceneEditCardData(doc.querySelector(".EditCard")!);
+    expect(result.director).toBe("Jane Director");
+  });
+
   it("extracts the full details text", () => {
     expect(data.details).toMatch(/^Lizzy asks her older stepbrother Conor/);
   });
@@ -63,7 +80,48 @@ describe("extractSceneEditCardData against a real 'create scene' EditCard", () =
   });
 
   it("extracts performers in order", () => {
-    expect(data.performers).toEqual(["Alina Voss", "Conor Coxxx"]);
+    expect(data.performers).toEqual([
+      { name: "Alina Voss", alias: null },
+      { name: "Conor Coxxx", alias: null },
+    ]);
+  });
+
+  it("keeps the credited-as display name, with the real name as the alias", () => {
+    const doc = documentFromHTML(`
+      <div class="EditCard">
+        <div class="ListChangeRow-Performers row">
+          <div class="col-10">
+            <div class="ListChangeRow">
+              <ul>
+                <li><a href="/performers/e7195cf7-2270-453b-9f86-85403e8a8da7"><span>Anja</span><small class="ms-1 text-small text-muted">(Era)<small class="ms-1 text-small text-muted">(Karups, Sapphic Erotica, 21Sextury)</small></small></a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+    const result = extractSceneEditCardData(doc.querySelector(".EditCard")!);
+    expect(result.performers).toEqual([{ name: "Anja", alias: "Era" }]);
+  });
+
+  it("keeps the display name for a bare disambiguation too, since it's indistinguishable from a credited-as real name", () => {
+    const doc = documentFromHTML(`
+      <div class="EditCard">
+        <div class="ListChangeRow-Performers row">
+          <div class="col-10">
+            <div class="ListChangeRow">
+              <ul>
+                <li><a href="/performers/1"><span>Cruella</span><small class="ms-1 text-small text-muted">(Nubiles.net, 2025)</small></a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+    const result = extractSceneEditCardData(doc.querySelector(".EditCard")!);
+    expect(result.performers).toEqual([
+      { name: "Cruella", alias: "Nubiles.net, 2025" },
+    ]);
   });
 
   it("extracts tags", () => {

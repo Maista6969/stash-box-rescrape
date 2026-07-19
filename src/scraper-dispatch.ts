@@ -7,6 +7,7 @@ import type {
 import scrape_ci from "./scrape-ci/scrape";
 import stash from "./stash/scrape";
 import { loadConfig } from "./config";
+import { showToast } from "./ui/toast";
 
 export type ResolvedScrapedScene = Omit<ScrapedScene, "image"> & {
   image: SizedImage | null;
@@ -88,22 +89,39 @@ export async function fetchScraperPatterns(
   } else if (mode === "remote") {
     return scrape_ci.fetchScraperPatterns();
   }
-  console.error("oh this shouldn't happen at all");
+  console.error(`[rescrape] Unknown scrape mode: "${mode}"`);
   return [[], []];
 }
 
 export async function reloadScraperPatterns(): Promise<void> {
   const config = loadConfig();
   const { endpoint, apiKey } = config[config.mode];
-  const [sceneList, performerList] = await fetchScraperPatterns(
-    endpoint,
-    apiKey,
-    config.mode,
-  );
-  setScraperPatterns(sceneList, performerList);
-  console.log(
-    `[rescrape] Reloaded ${sceneList.length} scene scraper patterns and ${performerList.length} performer scraper patterns from ${config.mode} endpoint ${endpoint}`,
-  );
+  try {
+    const [sceneList, performerList] = await fetchScraperPatterns(
+      endpoint,
+      apiKey,
+      config.mode,
+    );
+    setScraperPatterns(sceneList, performerList);
+    console.log(
+      `[rescrape] Reloaded ${sceneList.length} scene scraper patterns and ${performerList.length} performer scraper patterns from ${config.mode} endpoint ${endpoint}`,
+    );
+  } catch (error) {
+    console.error("[rescrape] Failed to reload scraper patterns:", error);
+  }
+
+  const { sceneScraperPatterns, performerScraperPatterns } =
+    getScraperPatterns();
+  if (
+    sceneScraperPatterns.length === 0 &&
+    performerScraperPatterns.length === 0
+  ) {
+    showToast(
+      "No scraper patterns were loaded, so rescrape features are disabled. Check your endpoint configuration.",
+      "error",
+      0,
+    );
+  }
 }
 
 export async function scrapeScene(
@@ -117,8 +135,8 @@ export async function scrapeScene(
   } else if (mode === "remote") {
     return scrape_ci.scrapeScene(url, endpoint, apiKey);
   }
-  console.error("oh this shouldn't happen at all", endpoint, apiKey, mode);
-  throw "ya done fucked up scenewise";
+  console.error(`[rescrape] Unknown scrape mode: "${mode}"`, endpoint, apiKey);
+  throw new Error(`Unknown scrape mode: "${mode}"`);
 }
 
 export async function scrapePerformer(
@@ -132,12 +150,12 @@ export async function scrapePerformer(
   } else if (mode === "remote") {
     return scrape_ci.scrapePerformer(url, endpoint, apiKey);
   }
-  console.error("oh this shouldn't happen at all", endpoint, apiKey, mode);
-  throw "ya done fucked up performerwise";
+  console.error(`[rescrape] Unknown scrape mode: "${mode}"`, endpoint, apiKey);
+  throw new Error(`Unknown scrape mode: "${mode}"`);
 }
 
 export function isURLScrapable(
-  url: string | any[],
+  url: string,
   objectType?: "scene" | "performer",
 ) {
   if (objectType === "scene") {

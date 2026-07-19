@@ -6,7 +6,7 @@ type Endpoint = {
 };
 export type PanelPosition = { top: number; left: number } | null;
 export type PanelSize = { width: number; height: number } | null;
-type Config = {
+export type Config = {
   mode: Mode;
   local: Endpoint;
   remote: Endpoint;
@@ -32,5 +32,5 @@ export const loadConfig = () => {
     return { ...defaultConfig };
   }
 };
-export const saveConfig = (cfg: any) =>
+export const saveConfig = (cfg: Config) =>
   GM_setValue(CONFIG_KEY, JSON.stringify(cfg));

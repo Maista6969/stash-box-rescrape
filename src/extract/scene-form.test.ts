@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from "vitest";
 import { loadFixtureDocument, documentFromHTML } from "../test/fixtures";
-import { extractSceneFormData } from "./scene-form";
+import { extractSceneFormData, extractCurrentUrls } from "./scene-form";
 
 describe("extractSceneFormData against the real edit-scene.html page", () => {
   const doc = loadFixtureDocument("edit-scene.html");
@@ -49,6 +49,14 @@ describe("extractSceneFormData against the real edit-scene.html page", () => {
     expect(data.tags).toContain("4K Available");
     expect(data.tags).toContain("Facial");
     expect(data.tags).toContain("Threesome (BBG)");
+  });
+
+  it("extracts the current submitted URLs", () => {
+    expect(extractCurrentUrls(form)).toEqual([
+      "https://theporndb.net/scenes/brazzersexxtra-fix-my-car-fix-my-pussy",
+      "https://www.brazzers.com/video/11498317/fix-my-car-fix-my-pussy",
+    ]);
+    expect(data.urls).toEqual(extractCurrentUrls(form));
   });
 });
 

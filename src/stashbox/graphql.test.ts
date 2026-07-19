@@ -16,8 +16,18 @@ function mockGraphQLResponse(handler: (query: string) => unknown): {
   queries: string[];
 } {
   const queries: string[] = [];
+  // Mocking the ambient Tampermonkey global: its real type is a complex
+  // generic overloaded declaration not worth reproducing here.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (globalThis as any).GM_xmlhttpRequest = vi.fn(
-    ({ data, onload }: { data: string; onload: (res: any) => void }) => {
+    ({
+      data,
+      onload,
+    }: {
+      data: string;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      onload: (res: any) => void;
+    }) => {
       const { query } = JSON.parse(data);
       queries.push(query);
       onload({ status: 200, response: { data: handler(query) } });
@@ -245,7 +255,13 @@ describe("buildPerformerAliasQuery / parsePerformerAliasResponse", () => {
     const result = parsePerformerAliasResponse(["jane doe"], {
       search_0: {
         performers: [
-          { id: "id-1", name: "Jane Doe", aliases: ["JD"], deleted: false },
+          {
+            id: "id-1",
+            name: "Jane Doe",
+            aliases: ["JD"],
+            disambiguation: null,
+            deleted: false,
+          },
         ],
       },
     });
@@ -261,5 +277,50 @@ describe("buildPerformerAliasQuery / parsePerformerAliasResponse", () => {
       search_0: { performers: [] },
     });
     expect(result.has("Nobody")).toBe(false);
+  });
+
+  it("surfaces every matching performer as a candidate when a name matches more than one", () => {
+    const result = parsePerformerAliasResponse(["Ali Jones"], {
+      search_0: {
+        performers: [
+          {
+            id: "id-1",
+            name: "Ali Jones",
+            aliases: [],
+            disambiguation: "Los Angeles",
+            deleted: false,
+          },
+          {
+            id: "id-2",
+            name: "Ali Jones",
+            aliases: [],
+            disambiguation: null,
+            deleted: false,
+          },
+        ],
+      },
+    });
+    const entry = result.get("Ali Jones");
+    expect(entry?.candidates).toEqual([
+      { id: "id-1", name: "Ali Jones", disambiguation: "Los Angeles" },
+      { id: "id-2", name: "Ali Jones", disambiguation: null },
+    ]);
+  });
+
+  it("doesn't set candidates when only one performer matches", () => {
+    const result = parsePerformerAliasResponse(["Jane Doe"], {
+      search_0: {
+        performers: [
+          {
+            id: "id-1",
+            name: "Jane Doe",
+            aliases: [],
+            disambiguation: null,
+            deleted: false,
+          },
+        ],
+      },
+    });
+    expect(result.get("Jane Doe")?.candidates).toBeUndefined();
   });
 });

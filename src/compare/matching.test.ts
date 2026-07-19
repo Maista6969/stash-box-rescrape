@@ -13,7 +13,7 @@ import {
   findMention,
 } from "./matching";
 import { compareLoose } from "./compare";
-import type { AliasInfo } from "../stashbox/graphql";
+import type { AliasInfo, PerformerAliasInfo } from "../stashbox/graphql";
 
 describe("matchPerformers", () => {
   it("matches by exact name", () => {
@@ -143,6 +143,51 @@ describe("matchPerformers", () => {
     expect(unknownPerformers).toEqual(["Rosie Smith"]);
   });
 
+  it("matches names that only differ in whitespace", () => {
+    const {
+      alreadyPresentPerformers: [match],
+      unknownPerformers,
+    } = matchPerformers(["MoonImp"], ["Moon Imp"], new Map());
+    expect(match).toEqual({
+      scraped: "MoonImp",
+      canonical: "Moon Imp",
+      via: "name",
+    });
+    expect(unknownPerformers).toEqual([]);
+  });
+
+  it("prefers a spacing-only name match over an alias match, even when the scraped name is also a registered alias", () => {
+    const aliasMap = new Map<string, AliasInfo>([
+      ["MoonImp", { canonical: "Moon Imp", aliases: ["MoonImp"] }],
+    ]);
+    const {
+      alreadyPresentPerformers: [match],
+      unknownPerformers,
+    } = matchPerformers(["MoonImp"], ["Moon Imp"], aliasMap);
+    expect(match).toEqual({
+      scraped: "MoonImp",
+      canonical: "Moon Imp",
+      via: "name",
+    });
+    expect(unknownPerformers).toEqual([]);
+  });
+
+  it("does not treat other punctuation differences as a loose name match, since those are often a deliberately registered alias", () => {
+    const aliasMap = new Map<string, AliasInfo>([
+      ["Francis_x", { canonical: "Francis_x", aliases: ["Francis X"] }],
+    ]);
+    const {
+      alreadyPresentPerformers: [match],
+      unknownPerformers,
+    } = matchPerformers(["Francis X"], ["Francis_x"], aliasMap);
+    expect(match).toEqual({
+      scraped: "Francis X",
+      canonical: "Francis_x",
+      via: "alias",
+    });
+    expect(unknownPerformers).toEqual([]);
+  });
+
   it("guesses a single-name scraped credit against a current performer it starts with", () => {
     const {
       alreadyPresentPerformers: [match],
@@ -164,6 +209,92 @@ describe("matchPerformers", () => {
     );
     expect(alreadyPresentPerformers).toEqual([]);
     expect(unknownPerformers).toEqual(["Cruella Naked"]);
+  });
+
+  it("reports a scraped name matching multiple stash-box performers as ambiguous, not missing", () => {
+    const candidates = [
+      { id: "id-1", name: "Ali Jones", disambiguation: "Los Angeles" },
+      { id: "id-2", name: "Ali Jones", disambiguation: null },
+    ];
+    const aliasMap = new Map<string, PerformerAliasInfo>([
+      [
+        "Ali Jones",
+        { id: "id-1", canonical: "Ali Jones", aliases: [], candidates },
+      ],
+    ]);
+    const { missingPerformers, unknownPerformers, ambiguousPerformers } =
+      matchPerformers(["Ali Jones"], [], aliasMap);
+
+    expect(missingPerformers).toEqual([]);
+    expect(unknownPerformers).toEqual([]);
+    expect(ambiguousPerformers).toEqual([{ scraped: "Ali Jones", candidates }]);
+  });
+
+  it("does not suggest a specific performer for a bare single name that only matches via a global alias, with no scene performer to corroborate it", () => {
+    // e.g. the scrape returns just "Salvo" and stash-box's only "Salvo" hit
+    // is Salvo Nucci's alias - we can never be sure that's who's meant
+    const aliasMap = new Map<string, PerformerAliasInfo>([
+      ["Salvo", { canonical: "Salvo Nucci", aliases: ["Salvo"] }],
+    ]);
+    const { missingPerformers, unknownPerformers, ambiguousPerformers } =
+      matchPerformers(["Salvo"], [], aliasMap);
+
+    expect(missingPerformers).toEqual([]);
+    expect(ambiguousPerformers).toEqual([]);
+    expect(unknownPerformers).toEqual(["Salvo"]);
+  });
+
+  it("still suggests a missing performer when the bare scraped name is itself the exact registered primary name", () => {
+    const aliasMap = new Map<string, PerformerAliasInfo>([
+      ["Salvo", { canonical: "Salvo", aliases: [] }],
+    ]);
+    const { missingPerformers, unknownPerformers } = matchPerformers(
+      ["Salvo"],
+      [],
+      aliasMap,
+    );
+
+    expect(missingPerformers).toEqual([
+      { scraped: "Salvo", canonical: "Salvo" },
+    ]);
+    expect(unknownPerformers).toEqual([]);
+  });
+
+  it("still suggests a missing performer for a multi-word alias match with no scene corroboration", () => {
+    const aliasMap = new Map<string, PerformerAliasInfo>([
+      ["Kenley A.", { canonical: "Kenley Asher", aliases: ["Kenley A."] }],
+    ]);
+    const { missingPerformers, unknownPerformers } = matchPerformers(
+      ["Kenley A."],
+      [],
+      aliasMap,
+    );
+
+    expect(missingPerformers).toEqual([
+      { scraped: "Kenley A.", canonical: "Kenley Asher" },
+    ]);
+    expect(unknownPerformers).toEqual([]);
+  });
+
+  it("does not flag an ambiguous name as missing/unknown too", () => {
+    const aliasMap = new Map<string, PerformerAliasInfo>([
+      [
+        "Ali Jones",
+        {
+          id: "id-1",
+          canonical: "Ali Jones",
+          aliases: [],
+          candidates: [
+            { id: "id-1", name: "Ali Jones", disambiguation: null },
+            { id: "id-2", name: "Ali Jones", disambiguation: null },
+          ],
+        },
+      ],
+    ]);
+    const result = matchPerformers(["Ali Jones"], [], aliasMap);
+    expect(result.ambiguousPerformers).toHaveLength(1);
+    expect(result.missingPerformers).toEqual([]);
+    expect(result.unknownPerformers).toEqual([]);
   });
 });
 
@@ -231,6 +362,28 @@ describe("mergeSceneAliases", () => {
       { scraped: "Francis X", canonical: "Francis_x", via: "alias" },
     ]);
     expect(unknownPerformers).toEqual([]);
+  });
+
+  it("doesn't let a bare disambiguation (misread as a per-scene alias) break matching for that performer or anyone else", () => {
+    const current = [
+      { name: "Cruella", alias: "Nubiles.net, 2025" },
+      { name: "Sunny Nika", alias: "Elly Green" },
+    ];
+    const mergedAliasMap = mergeSceneAliases(current, new Map());
+
+    const { alreadyPresentPerformers, missingPerformers, unknownPerformers } =
+      matchPerformers(
+        ["Cruella Naked", "Sunny Nika", "Kenley Asher"],
+        ["Cruella", "Sunny Nika"],
+        mergedAliasMap,
+      );
+
+    expect(alreadyPresentPerformers).toEqual([
+      { scraped: "Cruella Naked", canonical: "Cruella", via: "guess" },
+      { scraped: "Sunny Nika", canonical: "Sunny Nika", via: "name" },
+    ]);
+    expect(missingPerformers).toEqual([]);
+    expect(unknownPerformers).toEqual(["Kenley Asher"]);
   });
 });
 
@@ -386,11 +539,21 @@ describe("relaxStudioComparison", () => {
     expect(result.status).toBe("match");
   });
 
-  it("upgrades a mismatch to approx when stripping the suffix leaves only a case difference", () => {
+  it("upgrades a mismatch straight to match when stripping the suffix leaves only a case difference", () => {
+    // Unlike compareLoose's usual approx status, studio names differing
+    // only by spacing/casing/punctuation are treated as the same studio
     const result = relaxStudioComparison("nadenasty (ManyVids)", "NadeNasty", {
       status: "diff",
     });
-    expect(result.status).toBe("approx");
+    expect(result.status).toBe("match");
+  });
+
+  it("upgrades a direct approx match (no stripping needed) straight to match too", () => {
+    const initial = compareLoose("Fuck Studies", "FuckStudies");
+    expect(initial.status).toBe("approx");
+    expect(
+      relaxStudioComparison("Fuck Studies", "FuckStudies", initial),
+    ).toEqual({ status: "match" });
   });
 
   it("leaves the result untouched when it's already a match", () => {
@@ -472,6 +635,7 @@ describe("computePerformerAlignment", () => {
         ],
         missingPerformers: [],
         unknownPerformers: [],
+        ambiguousPerformers: [],
       },
       null,
       null,
@@ -500,6 +664,7 @@ describe("computePerformerAlignment", () => {
         alreadyPresentPerformers: [],
         missingPerformers: [],
         unknownPerformers: [],
+        ambiguousPerformers: [],
       },
       "Some Other Title",
       null,
@@ -517,6 +682,7 @@ describe("computePerformerAlignment", () => {
         alreadyPresentPerformers: [],
         missingPerformers: [],
         unknownPerformers: [],
+        ambiguousPerformers: [],
       },
       "Kenley Asher's Wild Night",
       null,
@@ -536,6 +702,7 @@ describe("computePerformerAlignment", () => {
           { scraped: "Kenley A.", canonical: "Kenley Asher" },
         ],
         unknownPerformers: [],
+        ambiguousPerformers: [],
       },
       null,
       null,
@@ -558,6 +725,7 @@ describe("computePerformerAlignment", () => {
         alreadyPresentPerformers: [],
         missingPerformers: [{ scraped: "Rob Hudson", canonical: "Rob Hudson" }],
         unknownPerformers: [],
+        ambiguousPerformers: [],
       },
       null,
       null,
@@ -580,6 +748,7 @@ describe("computePerformerAlignment", () => {
         alreadyPresentPerformers: [],
         missingPerformers: [{ scraped: "rob hudson", canonical: "Rob Hudson" }],
         unknownPerformers: [],
+        ambiguousPerformers: [],
       },
       null,
       null,
@@ -595,6 +764,7 @@ describe("computePerformerAlignment", () => {
         alreadyPresentPerformers: [],
         missingPerformers: [],
         unknownPerformers: ["Kenley Asher"],
+        ambiguousPerformers: [],
       },
       null,
       null,
@@ -619,6 +789,7 @@ describe("computePerformerAlignment", () => {
         ],
         missingPerformers: [],
         unknownPerformers: [],
+        ambiguousPerformers: [],
       },
       null,
       null,
@@ -633,6 +804,28 @@ describe("computePerformerAlignment", () => {
     ]);
   });
 
+  it("appends an ambiguous scraped performer as its own row, not as an extra", () => {
+    const candidates = [
+      { id: "id-1", name: "Ali Jones", disambiguation: "Los Angeles" },
+      { id: "id-2", name: "Ali Jones", disambiguation: null },
+    ];
+    const rows = computePerformerAlignment(
+      [],
+      ["Ali Jones"],
+      {
+        alreadyPresentPerformers: [],
+        missingPerformers: [],
+        unknownPerformers: [],
+        ambiguousPerformers: [{ scraped: "Ali Jones", candidates }],
+      },
+      null,
+      null,
+    );
+    expect(rows).toEqual([
+      { kind: "ambiguous", scraped: "Ali Jones", candidates },
+    ]);
+  });
+
   it("mixes unmatched-original, matched, and extra rows in the expected order", () => {
     const rows = computePerformerAlignment(
       ["Cruella Naked", "Sunny Nika"],
@@ -643,6 +836,7 @@ describe("computePerformerAlignment", () => {
         ],
         missingPerformers: [],
         unknownPerformers: ["Kenley Asher"],
+        ambiguousPerformers: [],
       },
       null,
       null,
@@ -759,6 +953,30 @@ describe("computePerformerRows", () => {
     );
     expect(result.rows).toEqual([{ kind: "unknown", scraped: "Kenley Asher" }]);
     expect(result.overallStatus).toBe("approx");
+  });
+
+  it("lists a name matching multiple performers as 'ambiguous' with every candidate, and treats it as a real diff", () => {
+    const candidates = [
+      { id: "id-1", name: "Ali Jones", disambiguation: "Los Angeles" },
+      { id: "id-2", name: "Ali Jones", disambiguation: null },
+    ];
+    const aliasMap = new Map<string, PerformerAliasInfo>([
+      [
+        "Ali Jones",
+        { id: "id-1", canonical: "Ali Jones", aliases: [], candidates },
+      ],
+    ]);
+    const result = computePerformerRows(
+      [],
+      ["Ali Jones"],
+      aliasMap,
+      null,
+      null,
+    );
+    expect(result.rows).toEqual([
+      { kind: "ambiguous", scraped: "Ali Jones", candidates },
+    ]);
+    expect(result.overallStatus).toBe("diff");
   });
 
   it("lists a current performer the scrape never mentioned as unmatched, with no mention", () => {

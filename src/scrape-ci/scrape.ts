@@ -6,6 +6,7 @@ import type {
 import { guessNationality } from "../scraper-shared/nationality";
 import { parseMeasurements } from "../scraper-shared/measurements";
 import { toName } from "../scraper-shared/names";
+import { gmRequest, type GraphQLError } from "../gm-request";
 
 // Scrape-CI doesn't share its scrapers like local Stash does
 // so we reconstruct its list of scrapers from the same source it uses
@@ -38,6 +39,8 @@ async function fetchScraperPatterns(): Promise<
   return [patternsFor("scene"), patternsFor("performer")];
 }
 
+// `result` is untyped raw JSON off the wire, a defensible boundary `any`.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function normalizeScrapeCiSceneResult(result: any): ScrapedScene {
   return {
     ...result,
@@ -52,44 +55,41 @@ async function scrapeScene(
   endpoint: string,
   apiKey: string,
 ): Promise<ScrapedScene> {
-  return new Promise((resolve, reject) => {
-    GM_xmlhttpRequest({
-      method: "POST",
-      url: endpoint,
-      responseType: "json",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      data: JSON.stringify({
-        url,
-        scrapeType: "scene",
-        auth: apiKey,
-      }),
-      onload: ({ status, response }) => {
-        console.debug(
-          `Scrape debug page at ${endpoint.replace("api/scrape", "scene?id=" + response.jobId)}`,
-        );
-        if (status != 200) {
-          let errors = response.errors
-            .map((e: { message: any }) => e.message)
-            .join("\n");
-          return reject(`Scraping scene from '${url}' failed: ${errors}`);
-        }
-        if (!response.result) {
-          return reject(
-            `Scraper returned no data for '${url}', possibly broken or geoblocked`,
-          );
-        }
-        return resolve(normalizeScrapeCiSceneResult(response.result));
-      },
-      onerror: (error) => {
-        return reject(`Request error for ${url}: ${error}`);
-      },
-    });
+  const { status, response } = await gmRequest<{
+    jobId: string;
+    result: unknown;
+    errors?: GraphQLError[];
+  }>({
+    method: "POST",
+    url: endpoint,
+    responseType: "json",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    data: JSON.stringify({
+      url,
+      scrapeType: "scene",
+      auth: apiKey,
+    }),
   });
+  console.debug(
+    `Scrape debug page at ${endpoint.replace("api/scrape", "scene?id=" + response.jobId)}`,
+  );
+  if (status != 200) {
+    const errors = response.errors?.map((e) => e.message).join("\n");
+    throw new Error(`Scraping scene from '${url}' failed: ${errors}`);
+  }
+  if (!response.result) {
+    throw new Error(
+      `Scraper returned no data for '${url}', possibly broken or geoblocked`,
+    );
+  }
+  return normalizeScrapeCiSceneResult(response.result);
 }
 
+// `result` is untyped raw JSON off the wire, a defensible boundary `any`.
 export function normalizeScrapeCiPerformerResult(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result: any,
 ): ScrapedPerformer {
   return {
@@ -104,43 +104,38 @@ async function scrapePerformer(
   endpoint: string,
   apiKey: string,
 ): Promise<ScrapedPerformer> {
-  return new Promise((resolve, reject) => {
-    GM_xmlhttpRequest({
-      method: "POST",
-      url: endpoint,
-      responseType: "json",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      data: JSON.stringify({
-        url,
-        scrapeType: "performer",
-        auth: apiKey,
-      }),
-      onload: ({ status, response }) => {
-        console.debug(
-          `Scrape debug page at ${endpoint.replace("api/scrape", "performer?id=" + response.jobId)}`,
-        );
-        if (status != 200) {
-          let errors = response.errors
-            .map((e: { message: any }) => e.message)
-            .join("\n");
-          return reject(`Scraping performer from '${url}' failed: ${errors}`);
-        }
-        // A crashed/outdated scraper returns a null/empty result rather
-        // than an error
-        if (!response.result) {
-          return reject(
-            `Scraper returned no data for '${url}', possibly broken or geoblocked`,
-          );
-        }
-        return resolve(normalizeScrapeCiPerformerResult(response.result));
-      },
-      onerror: (error) => {
-        reject(`Request error for ${url}: ${error}`);
-      },
-    });
+  const { status, response } = await gmRequest<{
+    jobId: string;
+    result: unknown;
+    errors?: GraphQLError[];
+  }>({
+    method: "POST",
+    url: endpoint,
+    responseType: "json",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    data: JSON.stringify({
+      url,
+      scrapeType: "performer",
+      auth: apiKey,
+    }),
   });
+  console.debug(
+    `Scrape debug page at ${endpoint.replace("api/scrape", "performer?id=" + response.jobId)}`,
+  );
+  if (status != 200) {
+    const errors = response.errors?.map((e) => e.message).join("\n");
+    throw new Error(`Scraping performer from '${url}' failed: ${errors}`);
+  }
+  // A crashed/outdated scraper returns a null/empty result rather
+  // than an error
+  if (!response.result) {
+    throw new Error(
+      `Scraper returned no data for '${url}', possibly broken or geoblocked`,
+    );
+  }
+  return normalizeScrapeCiPerformerResult(response.result);
 }
 
 export default {

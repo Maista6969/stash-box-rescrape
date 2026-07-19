@@ -10,7 +10,7 @@ import {
 } from "../scraper-dispatch";
 import { showSceneResults } from "./scene-results";
 import { showPerformerResults } from "./performer-results";
-import { showPanelError } from "./panel";
+import { handleEditPageScrapeFailure } from "./scraper-recovery";
 
 function injectFormButtons(
   form: HTMLFormElement,
@@ -43,6 +43,7 @@ function injectFormButtons(
 
     const svgIcon = createFontAwesomeIcon(
       isScrapable ? "magnifying-glass" : "circle-xmark",
+      "rescrape-icon",
     );
 
     const btn = document.createElement("a");
@@ -62,9 +63,11 @@ function injectFormButtons(
       return;
     }
 
-    const doScrape = async (e: KeyboardEvent | MouseEvent) => {
-      e.preventDefault();
-      console.debug("[rescrape] scrape button clicked for URL:", url);
+    const objectType: "scene" | "performer" =
+      formType === "Scene" ? "scene" : "performer";
+
+    const runScrape = async () => {
+      console.debug("[rescrape] scrape triggered for URL:", url);
 
       btn.classList.remove("btn-outline-primary", "btn-outline-danger");
       btn.classList.add("btn-outline-secondary");
@@ -72,9 +75,10 @@ function injectFormButtons(
       setIconState(svgIcon, "spinner");
       svgIcon.classList.add("rescrape-spinner");
 
+      const config = loadConfig();
+      const { endpoint, apiKey } = config[config.mode];
+
       try {
-        const config = loadConfig();
-        const { endpoint, apiKey } = config[config.mode];
         if (formType === "Scene") {
           await scrapeScene(url, endpoint, apiKey, config.mode)
             .then((raw) => {
@@ -86,7 +90,7 @@ function injectFormButtons(
             })
             .then(getImageDimensions)
             .then((scrapedData) =>
-              showSceneResults(form, scrapedData, matchedPattern?.scraperName),
+              showSceneResults(form, scrapedData, matchedPattern.scraperName),
             );
         } else {
           await scrapePerformer(url, endpoint, apiKey, config.mode).then(
@@ -102,16 +106,31 @@ function injectFormButtons(
         }
         btn.classList.remove("btn-outline-secondary");
         btn.classList.add("btn-outline-primary");
-      } catch (err: any) {
+      } catch (err) {
         console.error("[rescrape] error during scrape/display:", err);
         btn.classList.remove("btn-outline-secondary");
         btn.classList.add("btn-outline-danger");
-        showPanelError(form, String(err?.message ?? err));
+        await handleEditPageScrapeFailure(
+          form,
+          url,
+          objectType,
+          matchedPattern.scraperName,
+          config.mode,
+          endpoint,
+          apiKey,
+          err,
+          runScrape,
+        );
       } finally {
         setIconState(svgIcon, "magnifying-glass");
         svgIcon.classList.remove("rescrape-spinner");
         btn.style.pointerEvents = "";
       }
+    };
+
+    const doScrape = (e: KeyboardEvent | MouseEvent) => {
+      e.preventDefault();
+      runScrape();
     };
     btn.addEventListener("click", doScrape);
     btn.addEventListener("keydown", (e) => {
@@ -165,7 +184,7 @@ export async function initEditPageRescrape() {
     } else if (formType === "Performer") {
       injectFormButtons(form, formType, performerScraperPatterns);
     } else {
-      console.error("Hmm this is wrong");
+      console.error(`[rescrape] Unexpected form type: "${formType}"`);
     }
   };
 

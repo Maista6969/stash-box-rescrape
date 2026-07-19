@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   compareExact,
+  compareCaseInsensitive,
   compareLoose,
   compareImageDimensions,
   compareNameArrays,
@@ -56,6 +57,36 @@ describe("compareExact", () => {
     expect(compareExact(null, null)).toEqual({ status: "match" });
     expect(compareExact("", "")).toEqual({ status: "match" });
     expect(compareExact(undefined, undefined)).toEqual({ status: "match" });
+  });
+});
+
+describe("compareCaseInsensitive", () => {
+  it("matches identical strings", () => {
+    expect(compareCaseInsensitive("2023-09-05", "2023-09-05")).toEqual({
+      status: "match",
+    });
+  });
+
+  it("treats a case-only difference as a full match, not approx", () => {
+    expect(compareCaseInsensitive("abc-123", "ABC-123")).toEqual({
+      status: "match",
+    });
+  });
+
+  it("still reports a genuine diff", () => {
+    const result = compareCaseInsensitive("abc-123", "xyz-999");
+    expect(result.status).toBe("diff");
+    expect(result.diff).toBeDefined();
+  });
+
+  it("is 'additional' / 'missing' the same way compareExact is", () => {
+    expect(compareCaseInsensitive("Director", null)).toEqual({
+      status: "additional",
+    });
+    expect(compareCaseInsensitive(null, "Director")).toEqual({
+      status: "missing",
+    });
+    expect(compareCaseInsensitive(null, null)).toEqual({ status: "match" });
   });
 });
 
@@ -141,27 +172,33 @@ describe("compareImageDimensions", () => {
   });
 
   it("is 'additional' when only current has an image", () => {
-    expect(
-      compareImageDimensions({ src: "a", width: 100, height: 100 }, null),
-    ).toBe("additional");
+    expect(compareImageDimensions({ width: 100, height: 100 }, null)).toBe(
+      "additional",
+    );
   });
 
   it("is 'missing' when only scraped has an image", () => {
-    expect(
-      compareImageDimensions(null, { src: "a", width: 100, height: 100 }),
-    ).toBe("missing");
+    expect(compareImageDimensions(null, { width: 100, height: 100 })).toBe(
+      "missing",
+    );
   });
 
   it("matches when dimensions are identical", () => {
-    const a = { src: "a", width: 800, height: 600 };
-    const b = { src: "b", width: 800, height: 600 };
+    const a = { width: 800, height: 600 };
+    const b = { width: 800, height: 600 };
     expect(compareImageDimensions(a, b)).toBe("match");
   });
 
   it("is 'diff' when dimensions differ", () => {
-    const a = { src: "a", width: 800, height: 600 };
-    const b = { src: "b", width: 1024, height: 768 };
+    const a = { width: 800, height: 600 };
+    const b = { width: 1024, height: 768 };
     expect(compareImageDimensions(a, b)).toBe("diff");
+  });
+
+  it("only cares about dimensions, not src - a SizedImage still works fine", () => {
+    const a = { src: "a", width: 800, height: 600 };
+    const b = { src: "b", width: 800, height: 600 };
+    expect(compareImageDimensions(a, b)).toBe("match");
   });
 });
 

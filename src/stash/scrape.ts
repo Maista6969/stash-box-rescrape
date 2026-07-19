@@ -6,6 +6,7 @@ import type {
 import { guessNationality } from "../scraper-shared/nationality";
 import { parseMeasurements } from "../scraper-shared/measurements";
 import { ScraperCrashedError } from "../scraper-errors";
+import { gmRequest, type GraphQLError } from "../gm-request";
 
 type StashScraperDefinition = {
   name: string;
@@ -13,23 +14,23 @@ type StashScraperDefinition = {
   performer: { urls: string[] } | null;
 };
 
-export function fetchScraperPatterns(
+export async function fetchScraperPatterns(
   endpoint: string,
   apiKey: string,
-):
-  | [ScraperPattern[], ScraperPattern[]]
-  | PromiseLike<[ScraperPattern[], ScraperPattern[]]> {
-  return new Promise((resolve, reject) => {
-    GM_xmlhttpRequest({
-      method: "POST",
-      responseType: "json",
-      url: endpoint,
-      headers: {
-        "Content-Type": "application/json",
-        ApiKey: apiKey,
-      },
-      data: JSON.stringify({
-        query: `
+): Promise<[ScraperPattern[], ScraperPattern[]]> {
+  const { status, response } = await gmRequest<{
+    data: { listScrapers: StashScraperDefinition[] };
+    errors?: GraphQLError[];
+  }>({
+    method: "POST",
+    responseType: "json",
+    url: endpoint,
+    headers: {
+      "Content-Type": "application/json",
+      ApiKey: apiKey,
+    },
+    data: JSON.stringify({
+      query: `
           query {
             listScrapers(types: [SCENE, PERFORMER]) {
               name
@@ -41,125 +42,39 @@ export function fetchScraperPatterns(
               }
             }
           }`,
-      }),
-      onload: (res) => {
-        if (res.status != 200) {
-          let errors = res.response.errors
-            .map((e: { message: any }) => e.message)
-            .join("\n");
-          return reject(
-            `Failed to fetch scraper patterns from ${endpoint}: ${errors}`,
-          );
-        }
-        const scrapers: StashScraperDefinition[] =
-          res.response.data.listScrapers;
-        const patternsFor = (type: "scene" | "performer"): ScraperPattern[] =>
-          scrapers.flatMap((scraper) => {
-            const urls = scraper[type]?.urls;
-            if (!urls) return [];
-            return urls.map((url) => ({
-              scraperName: scraper.name,
-              pattern: url,
-            }));
-          });
-        return resolve([patternsFor("scene"), patternsFor("performer")]);
-      },
-      onerror: (req) =>
-        reject({
-          // @ts-ignore: we know finalUrl exists in ViolentMonkey but should check for compat with other userscript engines
-          msg: `HTTP Request failed when fetching scene scrapers: ${req.finalUrl} returned ${req.status}`,
-        }),
-    });
+    }),
   });
+  if (status != 200) {
+    const errors = response.errors?.map((e) => e.message).join("\n");
+    throw new Error(
+      `Failed to fetch scraper patterns from ${endpoint}: ${errors}`,
+    );
+  }
+  const scrapers = response.data.listScrapers;
+  const patternsFor = (type: "scene" | "performer"): ScraperPattern[] =>
+    scrapers.flatMap((scraper) => {
+      const urls = scraper[type]?.urls;
+      if (!urls) return [];
+      return urls.map((url) => ({
+        scraperName: scraper.name,
+        pattern: url,
+      }));
+    });
+  return [patternsFor("scene"), patternsFor("performer")];
 }
 
-/*
-Scrape results from local look like this:
-- any field can be null or empty
-- tags and performers need to be flattened (just "Teen", {name: "Teen"})
-{
-  "title": "The Boss Let Me Fuck All of My Coworkers: Freeuse On the Job",
-  "date": "2026-07-15",
-  "performers": [
-    {
-      "name": "Jewelz Blu",
-      "gender": "FEMALE",
-    },
-    {
-      "name": "Adriana Maya",
-      "gender": "FEMALE",
-    },
-    {
-      "name": "Luna Luxe",
-      "gender": "FEMALE",
-    },
-    {
-      "name": "Eric John",
-      "gender": "MALE",
-    },
-    {
-      "name": "Troy Francisco",
-      "gender": "MALE",
-    }
-  ],
-  "image": "https://images.psmcdn.net/teamskeet/fuf/adriana_maya_jewelz_blu/shared/hi.jpg",
-  "code": "32286",
-  "details": "Is this the best job ever? It just might be… I had been doing so well that the boss offered me a special perk - I could use the women at the office as my personal fuck toys, all day long, no questions asked. Huh?! Is this cool with HR? I mean, who am I to turn down a good time? If I’m fucking all day long, you know I’m happy! Asriana, Jewelz, and Luna are there for me to use however I want. No restrictions, just unlimited fun. I’ll be logging a LOT of overtime this quarter…",
-  "studio": {
-    "name": "Freeuse Fantasy",
-    "parent": {
-      "name": "Freeuse",
-    }
-  },
-  "urls": [
-    "https://www.teamskeet.com/movies/the-boss-let-me-fuck-all-of-my-coworkers-freeuse-on-the-job",
-    "https://app.reptyle.com/movies/32286"
-  ],
-  "tags": [
-    {
-      "name": "African American"
-    },
-    {
-      "name": "Black"
-    },
-    {
-      "name": "Black Hair"
-    },
-    {
-      "name": "Blue Hair"
-    },
-    {
-      "name": "Dreadlocks"
-    },
-    {
-      "name": "Ebony"
-    },
-    {
-      "name": "Long Hair"
-    },
-    {
-      "name": "Medium Height"
-    },
-    {
-      "name": "Office"
-    },
-    {
-      "name": "Standing Doggystyle"
-    },
-    {
-      "name": "Straight"
-    },
-    {
-      "name": "Teen"
-    },
-  ]
-}
-*/
+// Scrape results from local Stash need flattening for `studio`, `performers`,
+// and `tags` (e.g. `{name: "Teen"}` -> `"Teen"`); any other field can be null
+// or empty. `src` is untyped raw JSON off the wire, a defensible boundary
+// `any` rather than a real type gap.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function normalizeStashScrapeResult(src: any): ScrapedScene {
   return {
     ...src,
     studio: src.studio?.name || null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     performers: (src.performers || []).map((p: any) => p.name),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tags: (src.tags || []).map((p: any) => p.name),
   };
 }
@@ -169,17 +84,19 @@ async function scrapeScene(
   endpoint: string,
   apiKey: string,
 ): Promise<ScrapedScene> {
-  return new Promise((resolve, reject) => {
-    GM_xmlhttpRequest({
-      method: "POST",
-      url: endpoint,
-      responseType: "json",
-      headers: {
-        "Content-Type": "application/json",
-        ApiKey: apiKey,
-      },
-      data: JSON.stringify({
-        query: `
+  const { status, response } = await gmRequest<{
+    data: { scrapeSceneURL: unknown };
+    errors?: GraphQLError[];
+  }>({
+    method: "POST",
+    url: endpoint,
+    responseType: "json",
+    headers: {
+      "Content-Type": "application/json",
+      ApiKey: apiKey,
+    },
+    data: JSON.stringify({
+      query: `
         query ScrapeSceneURL($url: String!) {
           scrapeSceneURL(url: $url) {
             title
@@ -204,36 +121,28 @@ async function scrapeScene(
           }
         }
         `,
-        variables: { url },
-      }),
-      onload: ({ status, response }) => {
-        if (response.errors?.length) {
-          const message = response.errors
-            .map((e: { message: string }) => e.message)
-            .join("\n");
-          return reject(new ScraperCrashedError(message));
-        }
-        if (status != 200) {
-          return reject(
-            `Scraping scene from '${url}' failed with HTTP ${status}`,
-          );
-        }
-        const src = response.data.scrapeSceneURL;
-        if (!src) {
-          return reject(
-            `Scraper returned no data for '${url}', possibly broken or geoblocked`,
-          );
-        }
-
-        resolve(normalizeStashScrapeResult(src));
-      },
-      onerror: (error) => {
-        reject(`Request error for ${url}: ${error}`);
-      },
-    });
+      variables: { url },
+    }),
   });
+  if (response.errors?.length) {
+    const message = response.errors.map((e) => e.message).join("\n");
+    throw new ScraperCrashedError(message);
+  }
+  if (status != 200) {
+    throw new Error(`Scraping scene from '${url}' failed with HTTP ${status}`);
+  }
+  const src = response.data.scrapeSceneURL;
+  if (!src) {
+    throw new Error(
+      `Scraper returned no data for '${url}', possibly broken or geoblocked`,
+    );
+  }
+
+  return normalizeStashScrapeResult(src);
 }
 
+// `raw` is untyped raw JSON off the wire, a defensible boundary `any`.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function normalizeStashPerformerResult(raw: any): ScrapedPerformer {
   return {
     ...raw,
@@ -250,17 +159,19 @@ async function scrapePerformer(
   endpoint: string,
   apiKey: string,
 ): Promise<ScrapedPerformer> {
-  return new Promise((resolve, reject) => {
-    GM_xmlhttpRequest({
-      method: "POST",
-      url: endpoint,
-      responseType: "json",
-      headers: {
-        "Content-Type": "application/json",
-        ApiKey: apiKey,
-      },
-      data: JSON.stringify({
-        query: `
+  const { status, response } = await gmRequest<{
+    data: { scrapePerformerURL: unknown };
+    errors?: GraphQLError[];
+  }>({
+    method: "POST",
+    url: endpoint,
+    responseType: "json",
+    headers: {
+      "Content-Type": "application/json",
+      ApiKey: apiKey,
+    },
+    data: JSON.stringify({
+      query: `
           query ScrapePerformerURL($url: String!) {
             scrapePerformerURL(url: $url) {
               name
@@ -278,34 +189,26 @@ async function scrapePerformer(
             }
           }
           `,
-        variables: { url },
-      }),
-      onload: ({ status, response }) => {
-        if (response.errors?.length) {
-          const message = response.errors
-            .map((e: { message: any }) => e.message)
-            .join("\n");
-          return reject(new ScraperCrashedError(message));
-        }
-        if (status != 200) {
-          return reject(
-            `Scraping performer from '${url}' failed with HTTP ${status}`,
-          );
-        }
-        const raw = response.data.scrapePerformerURL;
-        if (!raw) {
-          return reject(
-            `Scraper returned no data for '${url}', possibly broken or geoblocked`,
-          );
-        }
-
-        resolve(normalizeStashPerformerResult(raw));
-      },
-      onerror: (error) => {
-        reject(`Request error for ${url}: ${error}`);
-      },
-    });
+      variables: { url },
+    }),
   });
+  if (response.errors?.length) {
+    const message = response.errors.map((e) => e.message).join("\n");
+    throw new ScraperCrashedError(message);
+  }
+  if (status != 200) {
+    throw new Error(
+      `Scraping performer from '${url}' failed with HTTP ${status}`,
+    );
+  }
+  const raw = response.data.scrapePerformerURL;
+  if (!raw) {
+    throw new Error(
+      `Scraper returned no data for '${url}', possibly broken or geoblocked`,
+    );
+  }
+
+  return normalizeStashPerformerResult(raw);
 }
 
 export default {

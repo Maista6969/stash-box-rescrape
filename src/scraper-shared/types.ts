@@ -3,10 +3,13 @@ export type ScraperPattern = {
   pattern: string;
 };
 
-export type SizedImage = {
-  src: string;
-  height: number;
+export type Dimensions = {
   width: number;
+  height: number;
+};
+
+export type SizedImage = Dimensions & {
+  src: string;
 };
 
 // Needs to match the GraphQL query for scene scrapes

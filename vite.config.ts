@@ -4,6 +4,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { Plugin } from "vite";
 
+const pkg = JSON.parse(readFileSync("package.json", "utf-8")) as {
+  version: string;
+};
+
 // Imports "*.css?verbatim" as a template-literal string, preserving
 // newlines, comments, and formatting exactly as written on disk.
 function verbatimCss(): Plugin {
@@ -60,7 +64,7 @@ export default defineConfig({
       userscript: {
         name: "stash-box rescrape",
         namespace: `https://github.com/${GH_USER}/${GH_REPO}`,
-        version: "0.1.0",
+        version: pkg.version,
         description: "Use Stash scrapers directly on stash-box",
         match: [
           "https://stashdb.org/*",
