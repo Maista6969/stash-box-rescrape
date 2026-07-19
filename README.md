@@ -12,7 +12,28 @@ Installation requires a browser extension such as [Violentmonkey] / [Tampermonke
 
 ### Screenshots
 
-TODO add screenshots here and fix the install link above
+<table>
+<tr>
+<td align="center" width="50%">
+<a href="images/rescrape-scene.png" target="_blank"><img src="images/rescrape-scene.png" width="400" alt="Scene overlay comparison"></a><br>
+<sub>Full comparison overlay on edit page</sub>
+</td>
+<td align="center" width="50%">
+<a href="images/rescrape-scene-editcard.png" target="_blank"><img src="images/rescrape-scene-editcard.png" width="400" alt="Rescrape diff panel"></a><br>
+<sub>Rescrape directly on edit cards to make review faster</sub>
+</td>
+</tr>
+<tr>
+<td align="center" width="50%">
+<a href="images/rescrape-edit-form-links.png" target="_blank"><img src="images/rescrape-edit-form-links.png" width="400" alt="Edit form links tab"></a><br>
+<sub>Rescrape individual links straight from the edit form</sub>
+</td>
+<td align="center" width="50%">
+<a href="images/rescrape-config.png" target="_blank"><img src="images/rescrape-config.png" width="400" alt="Configuration dialog"></a><br>
+<sub>Configure your local Stash API endpoint or use a Scrape-CI compatible one</sub>
+</td>
+</tr>
+</table>
 
 [Violentmonkey]: https://violentmonkey.github.io/
 [Tampermonkey]: https://www.tampermonkey.net/
