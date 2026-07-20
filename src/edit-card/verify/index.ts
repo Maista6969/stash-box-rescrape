@@ -1,4 +1,4 @@
-import { loadConfig } from "../../config";
+import { getActiveEndpoint, loadConfig } from "../../config";
 import {
   classifyEdit,
   isRelevantEdit,
@@ -96,7 +96,7 @@ async function verifyURL(
   setIconState(iconElement, "spinner");
 
   const config = loadConfig();
-  const { endpoint, apiKey } = config[config.mode];
+  const { endpoint, apiKey } = getActiveEndpoint(config);
 
   resetPreviousVerification(editCard);
 

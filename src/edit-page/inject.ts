@@ -1,5 +1,5 @@
 import type { ScraperPattern } from "../scraper-shared/types";
-import { loadConfig } from "../config";
+import { getActiveEndpoint, loadConfig } from "../config";
 import { createFontAwesomeIcon, setIconState } from "../ui/icons";
 import {
   scrapeScene,
@@ -76,7 +76,7 @@ function injectFormButtons(
       svgIcon.classList.add("rescrape-spinner");
 
       const config = loadConfig();
-      const { endpoint, apiKey } = config[config.mode];
+      const { endpoint, apiKey } = getActiveEndpoint(config);
 
       try {
         if (formType === "Scene") {

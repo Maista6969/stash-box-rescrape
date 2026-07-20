@@ -6,7 +6,7 @@ import type {
 } from "./scraper-shared/types";
 import scrape_ci from "./scrape-ci/scrape";
 import stash from "./stash/scrape";
-import { loadConfig } from "./config";
+import { getActiveEndpoint, loadConfig } from "./config";
 import { showToast } from "./ui/toast";
 
 export type ResolvedScrapedScene = Omit<ScrapedScene, "image"> & {
@@ -95,7 +95,7 @@ export async function fetchScraperPatterns(
 
 export async function reloadScraperPatterns(): Promise<void> {
   const config = loadConfig();
-  const { endpoint, apiKey } = config[config.mode];
+  const { endpoint, apiKey } = getActiveEndpoint(config);
   try {
     const [sceneList, performerList] = await fetchScraperPatterns(
       endpoint,
