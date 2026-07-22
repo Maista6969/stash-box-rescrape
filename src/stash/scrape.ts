@@ -105,6 +105,7 @@ async function scrapeScene(
             urls
             date
             image
+            director
             studio {
               name
               parent {
