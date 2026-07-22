@@ -10,6 +10,9 @@ import {
   parseTagAliasResponse,
   buildPerformerAliasQuery,
   parsePerformerAliasResponse,
+  findDuplicatesByUrl,
+  buildUrlSearchQuery,
+  parseUrlSearchResponse,
 } from "./graphql";
 
 function mockGraphQLResponse(handler: (query: string) => unknown): {
@@ -322,5 +325,83 @@ describe("buildPerformerAliasQuery / parsePerformerAliasResponse", () => {
       },
     });
     expect(result.get("Jane Doe")?.candidates).toBeUndefined();
+  });
+});
+
+describe("buildUrlSearchQuery / parseUrlSearchResponse", () => {
+  it("builds a performer and scene search field per URL", () => {
+    const query = buildUrlSearchQuery(["https://iafd.com/person.rme/id=123"]);
+    expect(query).toContain("perf_0: searchPerformers");
+    expect(query).toContain("scene_0: searchScenes");
+    expect(query).toContain('"https://iafd.com/person.rme/id=123"');
+  });
+
+  it("reports a matching performer for a URL", () => {
+    const result = parseUrlSearchResponse(["https://example.com/a"], {
+      perf_0: {
+        performers: [{ id: "p-1", name: "Jane Doe", deleted: false }],
+      },
+      scene_0: { scenes: [] },
+    });
+    expect(result.get("https://example.com/a")).toEqual([
+      { type: "performer", id: "p-1", name: "Jane Doe" },
+    ]);
+  });
+
+  it("reports a matching scene for a URL", () => {
+    const result = parseUrlSearchResponse(["https://example.com/a"], {
+      perf_0: { performers: [] },
+      scene_0: {
+        scenes: [{ id: "s-1", title: "Some Scene", deleted: false }],
+      },
+    });
+    expect(result.get("https://example.com/a")).toEqual([
+      { type: "scene", id: "s-1", name: "Some Scene" },
+    ]);
+  });
+
+  it("ignores deleted performers and scenes", () => {
+    const result = parseUrlSearchResponse(["https://example.com/a"], {
+      perf_0: {
+        performers: [{ id: "p-1", name: "Jane Doe", deleted: true }],
+      },
+      scene_0: {
+        scenes: [{ id: "s-1", title: "Some Scene", deleted: true }],
+      },
+    });
+    expect(result.has("https://example.com/a")).toBe(false);
+  });
+
+  it("leaves a URL unmapped when nothing matches", () => {
+    const result = parseUrlSearchResponse(["https://example.com/a"], {
+      perf_0: { performers: [] },
+      scene_0: { scenes: [] },
+    });
+    expect(result.has("https://example.com/a")).toBe(false);
+  });
+});
+
+describe("findDuplicatesByUrl", () => {
+  it("resolves an empty map without querying when there are no URLs", async () => {
+    const { queries } = mockGraphQLResponse(() => ({}));
+    const result = await findDuplicatesByUrl([]);
+    expect(result.size).toBe(0);
+    expect(queries).toEqual([]);
+  });
+
+  it("queries stash-box's own search for each submitted URL", async () => {
+    const { queries } = mockGraphQLResponse(() => ({
+      perf_0: {
+        performers: [{ id: "p-1", name: "Jane Doe", deleted: false }],
+      },
+      scene_0: { scenes: [] },
+    }));
+
+    const result = await findDuplicatesByUrl(["https://example.com/a"]);
+
+    expect(queries[0]).toContain("searchPerformers");
+    expect(result.get("https://example.com/a")).toEqual([
+      { type: "performer", id: "p-1", name: "Jane Doe" },
+    ]);
   });
 });

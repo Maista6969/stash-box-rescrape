@@ -192,13 +192,23 @@
 .rescrape-url-item a {
   min-width: 0;
 }
-.rescrape-fingerprint-warning {
+.rescrape-fingerprint-warning,
+.rescrape-duplicate-warning {
   background: var(--scraped-mismatch);
   color: #fff;
   font-weight: 700;
   padding: 0.5rem 0.75rem;
   border-radius: var(--bs-border-radius, 0.3rem);
   margin-bottom: 0.75rem;
+}
+.rescrape-duplicate-warning ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.25rem;
+  font-weight: 400;
+}
+.rescrape-duplicate-warning a {
+  color: #fff;
+  text-decoration: underline;
 }
 .editcard-inline-diff {
   /* Matches stash-box's own .EditDiff box model exactly (padding,

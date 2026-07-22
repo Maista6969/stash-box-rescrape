@@ -4,6 +4,7 @@ import {
   isRelevantEdit,
   extractSceneEditCardData,
   extractPerformerEditCardData,
+  extractURLsFromEditCard,
 } from "../../extract/editcard";
 import {
   createFontAwesomeIcon,
@@ -27,6 +28,10 @@ import { addImageComparison, addUrlComparison } from "./image-url";
 import { addStudioComparison } from "./studio";
 import { addPerformerIntegration } from "./performers";
 import { handleScrapeFailure } from "./scraper-recovery";
+import {
+  checkForDuplicateUrlsOnPage,
+  type DuplicateCheckCard,
+} from "./duplicate-urls";
 
 export { decideFieldRowPresentation } from "./fields";
 export { decideImageComparison } from "./image-url";
@@ -166,9 +171,20 @@ export function initEditcardRescrape() {
 
   const editCards = document.querySelectorAll<HTMLDivElement>(".EditCard");
 
+  // Runs on all editcards without the user even clicking rescrape
+  const pendingDuplicateChecks: DuplicateCheckCard[] = [];
+
   editCards.forEach((editCard) => {
     const { editType, objectType } = classifyEdit(editCard);
     if (!isRelevantEdit(editType, objectType)) return;
+
+    if (!editCard.hasAttribute("data-rescrape-duplicate-checked")) {
+      editCard.setAttribute("data-rescrape-duplicate-checked", "true");
+      pendingDuplicateChecks.push({
+        editCard,
+        urls: extractURLsFromEditCard(editCard),
+      });
+    }
 
     const links = editCard.querySelectorAll<HTMLAnchorElement>(
       '.URLChangeRow a[href^="http"][target="_blank"]:not([data-rescrape-processed])',
@@ -216,6 +232,10 @@ export function initEditcardRescrape() {
       console.debug(`Added verification icon for ${objectType} URL: ${url}`);
     });
   });
+
+  if (pendingDuplicateChecks.length > 0) {
+    checkForDuplicateUrlsOnPage(pendingDuplicateChecks);
+  }
 }
 
 // If the configured endpoint changes we need to replace all scrape icons

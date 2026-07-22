@@ -227,3 +227,76 @@ export async function fetchPerformerAliases(
   );
   return parsePerformerAliasResponse(names, data);
 }
+
+export type UrlSearchMatch = {
+  type: "performer" | "scene";
+  id: string;
+  name: string;
+};
+
+type UrlPerformerResult = { id: string; name: string; deleted: boolean };
+type UrlSceneResult = { id: string; title: string; deleted: boolean };
+
+type UrlSearchQueryResult = {
+  [key: `perf_${number}`]: { performers: UrlPerformerResult[] } | null;
+} & {
+  [key: `scene_${number}`]: { scenes: UrlSceneResult[] } | null;
+};
+
+// A submitted URL that already resolves to an existing (non-deleted)
+// performer or scene is a strong signal the whole submission is a duplicate
+export function buildUrlSearchQuery(urls: string[]): string {
+  const fields = urls
+    .filter(Boolean)
+    .map(
+      (url, i) => `
+    perf_${i}: searchPerformers(term: ${JSON.stringify(url)}, limit: 5) {
+      performers {
+        id
+        name
+        deleted
+      }
+    }
+    scene_${i}: searchScenes(term: ${JSON.stringify(url)}, limit: 5) {
+      scenes {
+        id
+        title
+        deleted
+      }
+    }
+  `,
+    )
+    .join("\n");
+  return `{ ${fields} }`;
+}
+
+export function parseUrlSearchResponse(
+  urls: string[],
+  data: UrlSearchQueryResult,
+): Map<string, UrlSearchMatch[]> {
+  const result = new Map<string, UrlSearchMatch[]>();
+  urls.forEach((url, i) => {
+    const performers = (data[`perf_${i}`]?.performers ?? [])
+      .filter((p) => !p.deleted)
+      .map(
+        (p): UrlSearchMatch => ({ type: "performer", id: p.id, name: p.name }),
+      );
+    const scenes = (data[`scene_${i}`]?.scenes ?? [])
+      .filter((s) => !s.deleted)
+      .map((s): UrlSearchMatch => ({ type: "scene", id: s.id, name: s.title }));
+
+    const matches = [...performers, ...scenes];
+    if (matches.length) result.set(url, matches);
+  });
+  return result;
+}
+
+export async function findDuplicatesByUrl(
+  urls: string[],
+): Promise<Map<string, UrlSearchMatch[]>> {
+  if (!urls.length) return new Map();
+  const data = await stashboxQuery<UrlSearchQueryResult>(
+    buildUrlSearchQuery(urls),
+  );
+  return parseUrlSearchResponse(urls, data);
+}
