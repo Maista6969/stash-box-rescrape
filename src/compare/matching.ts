@@ -92,29 +92,31 @@ export function matchPerformers(
     // Anna DeVille matches as Anna DeVille because she has that case-different alias for a reason
     const scrapedEntry = aliasMap.get(scrapedName);
     if (scrapedEntry) {
-      const isExplicitAlias = scrapedEntry.aliases.some(
-        (a) => stripSpacing(a) === stripSpacing(scrapedName),
-      );
-      if (isExplicitAlias) {
-        const canonicalMatch = currentPerformers.find(
-          (cp) => cp === scrapedEntry.canonical,
-        );
-        // The current performer may be listed under the alias itself
-        // (e.g. a spacing variant) rather than the canonical name
-        const aliasMatch = currentPerformers.find((cp) =>
-          scrapedEntry.aliases.some(
-            (a) => stripSpacing(a) === stripSpacing(cp),
-          ),
-        );
-        const match = canonicalMatch ?? aliasMatch;
-        if (match) {
-          result.alreadyPresentPerformers.push({
-            scraped: scrapedName,
-            canonical: match,
-            via: "alias",
-          });
-          continue;
-        }
+      // Strict (verbatim) membership only - a scraped name that merely
+      // differs from the canonical by case/spacing (e.g. "Gia OhMy" vs
+      // "Gia Ohmy") isn't a registered alias just because stripping spacing
+      // makes it collide with an unrelated alias like "Gia Oh My". We only
+      // want the "alias" label when the exact string scraped/credited is
+      // genuinely one of the two known forms (canonical or alias).
+      const scrapedIsAlias = scrapedEntry.aliases.includes(scrapedName);
+      const scrapedIsCanonical = scrapedEntry.canonical === scrapedName;
+
+      const canonicalMatch = scrapedIsAlias
+        ? currentPerformers.find((cp) => cp === scrapedEntry.canonical)
+        : undefined;
+      // The current performer may be listed under the alias itself
+      // (e.g. a spacing variant) rather than the canonical name
+      const aliasMatch = scrapedIsCanonical
+        ? currentPerformers.find((cp) => scrapedEntry.aliases.includes(cp))
+        : undefined;
+      const match = canonicalMatch ?? aliasMatch;
+      if (match) {
+        result.alreadyPresentPerformers.push({
+          scraped: scrapedName,
+          canonical: match,
+          via: "alias",
+        });
+        continue;
       }
     }
 

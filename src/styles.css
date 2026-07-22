@@ -210,6 +210,81 @@
   color: #fff;
   text-decoration: underline;
 }
+.rescrape-name-matches {
+  margin-bottom: 0.75rem;
+  border-radius: var(--bs-border-radius, 0.3rem);
+  padding: 0.5rem 0.75rem;
+}
+.rescrape-name-matches > summary,
+.rescrape-name-match-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+.rescrape-name-matches > summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.rescrape-name-match-heading {
+  margin-bottom: 0.5rem;
+}
+.rescrape-name-matches > summary::-webkit-details-marker {
+  display: none;
+}
+.rescrape-name-matches > summary::before {
+  content: "▶";
+  font-size: 0.6rem;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+  opacity: 0.7;
+  font-variant-emoji: text;
+}
+.rescrape-name-matches[open] > summary::before {
+  transform: rotate(90deg);
+}
+.rescrape-name-match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.rescrape-name-match-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid rgba(34, 197, 175, 0.35);
+  border-radius: var(--bs-border-radius, 0.3rem);
+  background: rgba(34, 197, 175, 0.08);
+}
+.rescrape-name-match-thumb {
+  width: 2.5rem;
+  height: 2.5rem;
+  object-fit: cover;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: rgba(127, 127, 127, 0.15);
+}
+.rescrape-name-match-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.rescrape-name-match-name {
+  font-weight: 600;
+}
+.rescrape-name-match-meta {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+.rescrape-name-match-hint {
+  color: var(--scraped-mismatch);
+  font-weight: 700;
+}
 .editcard-inline-diff {
   /* Matches stash-box's own .EditDiff box model exactly (padding,
      white-space, no margin) so toggling between the two never changes

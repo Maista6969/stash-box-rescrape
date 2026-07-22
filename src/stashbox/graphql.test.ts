@@ -13,6 +13,9 @@ import {
   findDuplicatesByUrl,
   buildUrlSearchQuery,
   parseUrlSearchResponse,
+  findPerformerNameMatches,
+  buildPerformerNameSearchQuery,
+  parsePerformerNameSearchResponse,
 } from "./graphql";
 
 function mockGraphQLResponse(handler: (query: string) => unknown): {
@@ -402,6 +405,244 @@ describe("findDuplicatesByUrl", () => {
     expect(queries[0]).toContain("searchPerformers");
     expect(result.get("https://example.com/a")).toEqual([
       { type: "performer", id: "p-1", name: "Jane Doe" },
+    ]);
+  });
+});
+
+describe("buildPerformerNameSearchQuery / parsePerformerNameSearchResponse", () => {
+  it("builds one search field per name", () => {
+    const query = buildPerformerNameSearchQuery(["Jane Doe"]);
+    expect(query).toContain("search_0: searchPerformers");
+    expect(query).toContain('"Jane Doe"');
+  });
+
+  it("surfaces every non-deleted hit for a name, not just the best match", () => {
+    const result = parsePerformerNameSearchResponse(["Jane Doe"], {
+      search_0: {
+        performers: [
+          {
+            id: "p-1",
+            name: "Jane Doe",
+            disambiguation: "Los Angeles",
+            aliases: ["JD"],
+            deleted: false,
+            country: "USA",
+            birth_date: "1990-01-01",
+            images: [{ url: "https://example.com/p-1.jpg" }],
+          },
+          {
+            id: "p-2",
+            name: "Jane Doe",
+            disambiguation: null,
+            aliases: [],
+            deleted: false,
+            country: null,
+            birth_date: null,
+            images: [],
+          },
+        ],
+      },
+    });
+    expect(result.get("Jane Doe")).toEqual([
+      {
+        id: "p-1",
+        name: "Jane Doe",
+        disambiguation: "Los Angeles",
+        aliases: ["JD"],
+        country: "USA",
+        birthDate: "1990-01-01",
+        imageUrl: "https://example.com/p-1.jpg",
+      },
+      {
+        id: "p-2",
+        name: "Jane Doe",
+        disambiguation: null,
+        aliases: [],
+        country: null,
+        birthDate: null,
+        imageUrl: null,
+      },
+    ]);
+  });
+
+  it("filters out fuzzy hits that don't exactly contain the searched name or alias", () => {
+    const result = parsePerformerNameSearchResponse(["Jane Doe"], {
+      search_0: {
+        performers: [
+          {
+            id: "p-1",
+            name: "Jane Doe",
+            disambiguation: null,
+            aliases: [],
+            deleted: false,
+            country: null,
+            birth_date: null,
+            images: [],
+          },
+          {
+            id: "p-2",
+            name: "Jane Doeling",
+            disambiguation: null,
+            aliases: ["Not Jane Doe At All"],
+            deleted: false,
+            country: null,
+            birth_date: null,
+            images: [],
+          },
+        ],
+      },
+    });
+    expect(result.get("Jane Doe")).toEqual([
+      {
+        id: "p-1",
+        name: "Jane Doe",
+        disambiguation: null,
+        aliases: [],
+        country: null,
+        birthDate: null,
+        imageUrl: null,
+      },
+    ]);
+  });
+
+  it("keeps a hit whose alias, not primary name, exactly matches the search - case-insensitively", () => {
+    const result = parsePerformerNameSearchResponse(["jane d."], {
+      search_0: {
+        performers: [
+          {
+            id: "p-1",
+            name: "Jane Doe",
+            disambiguation: null,
+            aliases: ["Jane D."],
+            deleted: false,
+            country: null,
+            birth_date: null,
+            images: [],
+          },
+        ],
+      },
+    });
+    expect(result.get("jane d.")).toHaveLength(1);
+  });
+
+  it("drops every hit when none exactly contain the searched name", () => {
+    const result = parsePerformerNameSearchResponse(["Jane Doe"], {
+      search_0: {
+        performers: [
+          {
+            id: "p-1",
+            name: "Jane Doelittle",
+            disambiguation: null,
+            aliases: [],
+            deleted: false,
+            country: null,
+            birth_date: null,
+            images: [],
+          },
+        ],
+      },
+    });
+    expect(result.has("Jane Doe")).toBe(false);
+  });
+
+  it("ignores deleted performers", () => {
+    const result = parsePerformerNameSearchResponse(["Jane Doe"], {
+      search_0: {
+        performers: [
+          {
+            id: "p-1",
+            name: "Jane Doe",
+            disambiguation: null,
+            aliases: [],
+            deleted: true,
+            country: null,
+            birth_date: null,
+            images: [],
+          },
+        ],
+      },
+    });
+    expect(result.has("Jane Doe")).toBe(false);
+  });
+
+  it("leaves a name unmapped when nothing matches", () => {
+    const result = parsePerformerNameSearchResponse(["Nobody"], {
+      search_0: { performers: [] },
+    });
+    expect(result.has("Nobody")).toBe(false);
+  });
+});
+
+describe("findPerformerNameMatches", () => {
+  it("resolves an empty map without querying when there are no names", async () => {
+    const { queries } = mockGraphQLResponse(() => ({}));
+    const result = await findPerformerNameMatches([]);
+    expect(result.size).toBe(0);
+    expect(queries).toEqual([]);
+  });
+
+  it("deduplicates names before querying", async () => {
+    const { queries } = mockGraphQLResponse(() => ({
+      search_0: { performers: [] },
+    }));
+
+    await findPerformerNameMatches(["Jane Doe", "Jane Doe"]);
+
+    expect(queries[0].match(/searchPerformers/g)).toHaveLength(1);
+  });
+
+  it("excludes bare single-word names, which are too common to be meaningful on their own", async () => {
+    const { queries } = mockGraphQLResponse(() => ({
+      search_0: { performers: [] },
+    }));
+
+    const result = await findPerformerNameMatches(["Angelina"]);
+
+    expect(queries).toEqual([]);
+    expect(result.size).toBe(0);
+  });
+
+  it("still queries the multi-word names in a mixed batch, skipping only the single-word ones", async () => {
+    const { queries } = mockGraphQLResponse(() => ({
+      search_0: { performers: [] },
+    }));
+
+    await findPerformerNameMatches(["Angelina", "Jane Doe"]);
+
+    expect(queries[0]).toContain('"Jane Doe"');
+    expect(queries[0]).not.toContain('"Angelina"');
+  });
+
+  it("queries stash-box's own search for each submitted name", async () => {
+    mockGraphQLResponse(() => ({
+      search_0: {
+        performers: [
+          {
+            id: "p-1",
+            name: "Jane Doe",
+            disambiguation: null,
+            aliases: [],
+            deleted: false,
+            country: null,
+            birth_date: null,
+            images: [],
+          },
+        ],
+      },
+    }));
+
+    const result = await findPerformerNameMatches(["Jane Doe"]);
+
+    expect(result.get("Jane Doe")).toEqual([
+      {
+        id: "p-1",
+        name: "Jane Doe",
+        disambiguation: null,
+        aliases: [],
+        country: null,
+        birthDate: null,
+        imageUrl: null,
+      },
     ]);
   });
 });

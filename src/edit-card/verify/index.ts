@@ -33,6 +33,10 @@ import {
   checkForDuplicateUrlsOnPage,
   type DuplicateCheckCard,
 } from "./duplicate-urls";
+import {
+  checkPerformerNameMatchesOnPage,
+  type NameSearchCard,
+} from "./performer-name-search";
 
 export { decideFieldRowPresentation } from "./fields";
 export { decideImageComparison } from "./image-url";
@@ -172,20 +176,36 @@ export function initEditcardRescrape() {
 
   const editCards = document.querySelectorAll<HTMLDivElement>(".EditCard");
 
-  // Runs on all editcards without the user even clicking rescrape
+  // Both checks below are independent of the rescrape/verify flow further
+  // down - they hit stash-box's own search, not the external scraper, so
+  // they run unconditionally rather than waiting on a moderator to click a
+  // per-URL verify icon. Every newly-seen card on the page is batched into a
+  // single query per check rather than one query per card, since a
+  // moderation queue page can have dozens of cards at once.
   const pendingDuplicateChecks: DuplicateCheckCard[] = [];
+  const pendingNameSearches: NameSearchCard[] = [];
 
   editCards.forEach((editCard) => {
     const { editType, objectType } = classifyEdit(editCard);
     if (!isRelevantEdit(editType, objectType)) return;
 
-    if (!editCard.hasAttribute("data-rescrape-duplicate-checked")) {
-      editCard.setAttribute("data-rescrape-duplicate-checked", "true");
+    if (!editCard.hasAttribute("data-rescrape-auto-checked")) {
+      editCard.setAttribute("data-rescrape-auto-checked", "true");
+      const ownEntityId = extractCreatedEntityId(editCard);
       pendingDuplicateChecks.push({
         editCard,
         urls: extractURLsFromEditCard(editCard),
-        ownEntityId: extractCreatedEntityId(editCard),
+        ownEntityId,
       });
+
+      if (objectType === "performer") {
+        const { name, aliases } = extractPerformerEditCardData(editCard);
+        pendingNameSearches.push({
+          editCard,
+          names: [...new Set([name, ...aliases].filter(Boolean))],
+          ownEntityId,
+        });
+      }
     }
 
     const links = editCard.querySelectorAll<HTMLAnchorElement>(
@@ -237,6 +257,9 @@ export function initEditcardRescrape() {
 
   if (pendingDuplicateChecks.length > 0) {
     checkForDuplicateUrlsOnPage(pendingDuplicateChecks);
+  }
+  if (pendingNameSearches.length > 0) {
+    checkPerformerNameMatchesOnPage(pendingNameSearches);
   }
 }
 

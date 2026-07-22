@@ -172,6 +172,28 @@ describe("matchPerformers", () => {
     expect(unknownPerformers).toEqual([]);
   });
 
+  it("treats a casing difference from the canonical name as a full match even when stripping spacing coincidentally collides with an unrelated alias", () => {
+    const aliasMap = new Map<string, AliasInfo>([
+      [
+        "Gia OhMy",
+        {
+          canonical: "Gia Ohmy",
+          aliases: ["Barbie", "Bliss", "Gia Oh My"],
+        },
+      ],
+    ]);
+    const {
+      alreadyPresentPerformers: [match],
+      unknownPerformers,
+    } = matchPerformers(["Gia OhMy"], ["Gia Ohmy"], aliasMap);
+    expect(match).toEqual({
+      scraped: "Gia OhMy",
+      canonical: "Gia Ohmy",
+      via: "name",
+    });
+    expect(unknownPerformers).toEqual([]);
+  });
+
   it("does not treat other punctuation differences as a loose name match, since those are often a deliberately registered alias", () => {
     const aliasMap = new Map<string, AliasInfo>([
       ["Francis_x", { canonical: "Francis_x", aliases: ["Francis X"] }],

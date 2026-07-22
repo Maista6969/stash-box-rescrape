@@ -300,3 +300,106 @@ export async function findDuplicatesByUrl(
   );
   return parseUrlSearchResponse(urls, data);
 }
+
+export type PerformerNameMatch = {
+  id: string;
+  name: string;
+  disambiguation: string | null;
+  aliases: string[];
+  country: string | null;
+  birthDate: string | null;
+  imageUrl: string | null;
+};
+
+type RawPerformerNameMatch = {
+  id: string;
+  name: string;
+  disambiguation: string | null;
+  aliases: string[] | null;
+  deleted: boolean;
+  country: string | null;
+  birth_date: string | null;
+  images: { url: string }[] | null;
+};
+
+type PerformerNameSearchQueryResult = {
+  [key: `search_${number}`]: { performers: RawPerformerNameMatch[] } | null;
+};
+
+// Unlike fetchPerformerAliases (which narrows down to the one best exact
+// match), this surfaces every hit so a moderator can eyeball whether a
+// same-named performer is a coincidence - very common in adult entertainment
+export function buildPerformerNameSearchQuery(names: string[]): string {
+  const fields = names
+    .filter(Boolean)
+    .map(
+      (name, i) => `
+    search_${i}: searchPerformers(term: ${JSON.stringify(name)}, limit: 5) {
+      performers {
+        id
+        name
+        disambiguation
+        aliases
+        deleted
+        country
+        birth_date
+        images {
+          url
+        }
+      }
+    }
+  `,
+    )
+    .join("\n");
+  return `{ ${fields} }`;
+}
+
+export function parsePerformerNameSearchResponse(
+  names: string[],
+  data: PerformerNameSearchQueryResult,
+): Map<string, PerformerNameMatch[]> {
+  const result = new Map<string, PerformerNameMatch[]>();
+  names.forEach((name, i) => {
+    const nameLower = name.toLowerCase().trim();
+    // stash-box's search is fuzzy (it'll surface partial/loose matches), so
+    // narrow back down to hits that actually contain this exact name or alias
+    const matches = (data[`search_${i}`]?.performers ?? [])
+      .filter(
+        (p) =>
+          !p.deleted &&
+          (p.name.toLowerCase().trim() === nameLower ||
+            (p.aliases ?? []).some(
+              (a) => a.toLowerCase().trim() === nameLower,
+            )),
+      )
+      .map(
+        (p): PerformerNameMatch => ({
+          id: p.id,
+          name: p.name,
+          disambiguation: p.disambiguation,
+          aliases: p.aliases ?? [],
+          country: p.country,
+          birthDate: p.birth_date,
+          imageUrl: p.images?.[0]?.url ?? null,
+        }),
+      );
+    if (matches.length) result.set(name, matches);
+  });
+  return result;
+}
+
+export async function findPerformerNameMatches(
+  names: string[],
+): Promise<Map<string, PerformerNameMatch[]>> {
+  // A bare single-word name (e.g. "Angelina") is far too common in adult
+  // entertainment to mean anything on its own - only check names/aliases
+  // that are at least somewhat distinguishing
+  const uniqueNames = [
+    ...new Set(names.filter((name) => /\s/.test(name.trim()))),
+  ];
+  if (!uniqueNames.length) return new Map();
+  const data = await stashboxQuery<PerformerNameSearchQueryResult>(
+    buildPerformerNameSearchQuery(uniqueNames),
+  );
+  return parsePerformerNameSearchResponse(uniqueNames, data);
+}
