@@ -156,18 +156,18 @@ describe("matchPerformers", () => {
     expect(unknownPerformers).toEqual([]);
   });
 
-  it("prefers a spacing-only name match over an alias match, even when the scraped name is also a registered alias", () => {
+  it("prefers an exact alias match over a spacing-only name match", () => {
     const aliasMap = new Map<string, AliasInfo>([
-      ["MoonImp", { canonical: "Moon Imp", aliases: ["MoonImp"] }],
+      ["JMac", { canonical: "JMac", aliases: ["J Mac"] }],
     ]);
     const {
       alreadyPresentPerformers: [match],
       unknownPerformers,
-    } = matchPerformers(["MoonImp"], ["Moon Imp"], aliasMap);
+    } = matchPerformers(["JMac"], ["J Mac"], aliasMap);
     expect(match).toEqual({
-      scraped: "MoonImp",
-      canonical: "Moon Imp",
-      via: "name",
+      scraped: "JMac",
+      canonical: "J Mac",
+      via: "alias",
     });
     expect(unknownPerformers).toEqual([]);
   });

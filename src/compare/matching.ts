@@ -88,6 +88,36 @@ export function matchPerformers(
       continue;
     }
 
+    // Exact alias match
+    // Anna DeVille matches as Anna DeVille because she has that case-different alias for a reason
+    const scrapedEntry = aliasMap.get(scrapedName);
+    if (scrapedEntry) {
+      const isExplicitAlias = scrapedEntry.aliases.some(
+        (a) => stripSpacing(a) === stripSpacing(scrapedName),
+      );
+      if (isExplicitAlias) {
+        const canonicalMatch = currentPerformers.find(
+          (cp) => cp === scrapedEntry.canonical,
+        );
+        // The current performer may be listed under the alias itself
+        // (e.g. a spacing variant) rather than the canonical name
+        const aliasMatch = currentPerformers.find((cp) =>
+          scrapedEntry.aliases.some(
+            (a) => stripSpacing(a) === stripSpacing(cp),
+          ),
+        );
+        const match = canonicalMatch ?? aliasMatch;
+        if (match) {
+          result.alreadyPresentPerformers.push({
+            scraped: scrapedName,
+            canonical: match,
+            via: "alias",
+          });
+          continue;
+        }
+      }
+    }
+
     // Nearly exact if we disregard whitespace
     const spacingMatch = currentPerformers.find(
       (cp) => stripSpacing(cp) === stripSpacing(scrapedName),
@@ -99,28 +129,6 @@ export function matchPerformers(
         via: "name",
       });
       continue;
-    }
-
-    // Exact alias match
-    // Anna DeVille matches Anna DeVille because she has that case-different alias for a reason
-    const scrapedEntry = aliasMap.get(scrapedName);
-    if (scrapedEntry) {
-      const isExplicitAlias = scrapedEntry.aliases.some(
-        (a) => a.trim() === scrapedName,
-      );
-      if (isExplicitAlias) {
-        const canonicalMatch = currentPerformers.find(
-          (cp) => normalize(cp) === normalize(scrapedEntry.canonical),
-        );
-        if (canonicalMatch) {
-          result.alreadyPresentPerformers.push({
-            scraped: scrapedName,
-            canonical: canonicalMatch,
-            via: "alias",
-          });
-          continue;
-        }
-      }
     }
 
     // Case-insensitive name match
