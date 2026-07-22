@@ -27,7 +27,9 @@ function editCardWithBody(): Element {
 describe("checkForDuplicateUrlsOnPage", () => {
   it("does nothing when no card has any URLs to check", async () => {
     const editCard = editCardWithBody();
-    await checkForDuplicateUrlsOnPage([{ editCard, urls: [] }]);
+    await checkForDuplicateUrlsOnPage([
+      { editCard, urls: [], ownEntityId: null },
+    ]);
     expect(findDuplicatesByUrl).not.toHaveBeenCalled();
     expect(editCard.querySelector(".rescrape-duplicate-warning")).toBeNull();
   });
@@ -37,7 +39,7 @@ describe("checkForDuplicateUrlsOnPage", () => {
     const editCard = editCardWithBody();
 
     await checkForDuplicateUrlsOnPage([
-      { editCard, urls: ["https://example.com/a"] },
+      { editCard, urls: ["https://example.com/a"], ownEntityId: null },
     ]);
 
     expect(editCard.querySelector(".rescrape-duplicate-warning")).toBeNull();
@@ -52,10 +54,12 @@ describe("checkForDuplicateUrlsOnPage", () => {
       {
         editCard: cardA,
         urls: ["https://example.com/a", "https://shared.com"],
+        ownEntityId: null,
       },
       {
         editCard: cardB,
         urls: ["https://example.com/b", "https://shared.com"],
+        ownEntityId: null,
       },
     ]);
 
@@ -79,7 +83,7 @@ describe("checkForDuplicateUrlsOnPage", () => {
     const editCard = editCardWithBody();
 
     await checkForDuplicateUrlsOnPage([
-      { editCard, urls: ["https://example.com/a"] },
+      { editCard, urls: ["https://example.com/a"], ownEntityId: null },
     ]);
 
     const cardBody = editCard.querySelector(".card-body")!;
@@ -107,12 +111,62 @@ describe("checkForDuplicateUrlsOnPage", () => {
     const cardB = editCardWithBody();
 
     await checkForDuplicateUrlsOnPage([
-      { editCard: cardA, urls: ["https://example.com/a"] },
-      { editCard: cardB, urls: ["https://example.com/b"] },
+      { editCard: cardA, urls: ["https://example.com/a"], ownEntityId: null },
+      { editCard: cardB, urls: ["https://example.com/b"], ownEntityId: null },
     ]);
 
     expect(cardA.querySelector(".rescrape-duplicate-warning")).not.toBeNull();
     expect(cardB.querySelector(".rescrape-duplicate-warning")).toBeNull();
+  });
+
+  it("does not flag a match that's the entity this very edit created", async () => {
+    findDuplicatesByUrl.mockResolvedValue(
+      new Map([
+        [
+          "https://example.com/a",
+          [{ type: "scene", id: "self-id", name: "This Scene" }],
+        ],
+      ]),
+    );
+    const editCard = editCardWithBody();
+
+    await checkForDuplicateUrlsOnPage([
+      {
+        editCard,
+        urls: ["https://example.com/a"],
+        ownEntityId: "self-id",
+      },
+    ]);
+
+    expect(editCard.querySelector(".rescrape-duplicate-warning")).toBeNull();
+  });
+
+  it("still flags other matches on the same URL when only one is the edit's own entity", async () => {
+    findDuplicatesByUrl.mockResolvedValue(
+      new Map([
+        [
+          "https://example.com/a",
+          [
+            { type: "scene", id: "self-id", name: "This Scene" },
+            { type: "scene", id: "other-id", name: "Another Scene" },
+          ],
+        ],
+      ]),
+    );
+    const editCard = editCardWithBody();
+
+    await checkForDuplicateUrlsOnPage([
+      {
+        editCard,
+        urls: ["https://example.com/a"],
+        ownEntityId: "self-id",
+      },
+    ]);
+
+    const warning = editCard.querySelector(".rescrape-duplicate-warning");
+    expect(warning).not.toBeNull();
+    expect(warning?.textContent).toContain("Another Scene");
+    expect(warning?.textContent).not.toContain("This Scene");
   });
 
   it("logs and does not throw when the search query fails", async () => {
@@ -121,7 +175,7 @@ describe("checkForDuplicateUrlsOnPage", () => {
     const editCard = editCardWithBody();
 
     await checkForDuplicateUrlsOnPage([
-      { editCard, urls: ["https://example.com/a"] },
+      { editCard, urls: ["https://example.com/a"], ownEntityId: null },
     ]);
 
     expect(editCard.querySelector(".rescrape-duplicate-warning")).toBeNull();

@@ -95,6 +95,20 @@ function getEditDiffContent(row: Element | null): string | null {
   return editDiff ? textContentOf(editDiff) : null;
 }
 
+// Only present once a "create" edit has actually been applied: a "Created
+// scene"/"Created performer" row linking to the entity the edit itself
+// created. Lets callers recognize that entity as "this is what this
+// submission became" rather than as an unrelated pre-existing duplicate.
+export function extractCreatedEntityId(editCard: Element): string | null {
+  const rows = Array.from(editCard.querySelectorAll(".row"));
+  const row = rows.find((r) => {
+    const label = r.querySelector(".fw-bold")?.textContent?.trim();
+    return label === "Created scene" || label === "Created performer";
+  });
+  const href = row?.querySelector("a[href]")?.getAttribute("href") ?? "";
+  return href.match(/\/(?:scenes|performers)\/([^/?#]+)/)?.[1] ?? null;
+}
+
 export function extractURLsFromEditCard(editCard: Element): string[] {
   const links = editCard.querySelectorAll<HTMLAnchorElement>(
     '.URLChangeRow a[href^="http"][target="_blank"]',

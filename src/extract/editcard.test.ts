@@ -7,6 +7,7 @@ import {
   extractURLsFromEditCard,
   extractSceneEditCardData,
   extractPerformerEditCardData,
+  extractCreatedEntityId,
 } from "./editcard";
 
 describe("classifyEdit / isRelevantEdit against a real EditCard page", () => {
@@ -36,6 +37,33 @@ describe("classifyEdit / isRelevantEdit against a real EditCard page", () => {
   it("extracts the http(s) links from the fixture's URLChangeRow", () => {
     const urls = extractURLsFromEditCard(editCard);
     expect(urls).toContain("https://www.realitykings.com/model/2797/soraya");
+  });
+
+  it("extracts the id of the performer this applied edit created", () => {
+    expect(extractCreatedEntityId(editCard)).toBe(
+      "019e6314-ada6-75ea-956b-4a4a3fb15f38",
+    );
+  });
+});
+
+describe("extractCreatedEntityId", () => {
+  it("extracts the id of the scene an applied 'create scene' edit created", () => {
+    const doc = loadFixtureDocument("editcard-scene.html");
+    const editCard = doc.querySelector(".EditCard")!;
+    expect(extractCreatedEntityId(editCard)).toBe(
+      "02a5e67a-0ccc-4a7e-913c-329d163077bb",
+    );
+  });
+
+  it("returns null when the edit hasn't been applied yet (no Created row)", () => {
+    const doc = documentFromHTML(`
+      <div class="EditCard">
+        <div class="card-body">
+          <div class="mb-2 row"><b class="col-2 text-end pt-1">Title</b><div class="col-10"><div class="EditDiff">Some Title</div></div></div>
+        </div>
+      </div>
+    `);
+    expect(extractCreatedEntityId(doc.querySelector(".EditCard")!)).toBeNull();
   });
 });
 

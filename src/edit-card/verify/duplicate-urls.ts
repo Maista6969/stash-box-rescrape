@@ -6,6 +6,9 @@ import {
 export type DuplicateCheckCard = {
   editCard: Element;
   urls: string[];
+  // The entity this very edit created, if it's already been applied - a URL
+  // match against this id isn't a duplicate, it's the edit matching itself
+  ownEntityId: string | null;
 };
 
 function buildDuplicateWarning(
@@ -39,18 +42,19 @@ function buildDuplicateWarning(
 }
 
 function renderDuplicateWarning(
-  editCard: Element,
-  urls: string[],
+  { editCard, urls, ownEntityId }: DuplicateCheckCard,
   matchesByUrl: Map<string, UrlSearchMatch[]>,
 ) {
   const cardBody = editCard.querySelector(".card-body");
   if (!cardBody) return;
 
-  const ownMatches = new Map(
-    urls
-      .filter((url) => matchesByUrl.has(url))
-      .map((url) => [url, matchesByUrl.get(url)!] as const),
-  );
+  const ownMatches = new Map<string, UrlSearchMatch[]>();
+  for (const url of urls) {
+    const matches = (matchesByUrl.get(url) ?? []).filter(
+      (match) => match.id !== ownEntityId,
+    );
+    if (matches.length) ownMatches.set(url, matches);
+  }
   if (ownMatches.size === 0) return;
 
   cardBody.querySelector(".rescrape-duplicate-warning")?.remove();
@@ -72,7 +76,7 @@ export async function checkForDuplicateUrlsOnPage(
   }
   if (matchesByUrl.size === 0) return;
 
-  for (const { editCard, urls } of cards) {
-    renderDuplicateWarning(editCard, urls, matchesByUrl);
+  for (const card of cards) {
+    renderDuplicateWarning(card, matchesByUrl);
   }
 }

@@ -5,6 +5,7 @@ import {
   extractSceneEditCardData,
   extractPerformerEditCardData,
   extractURLsFromEditCard,
+  extractCreatedEntityId,
 } from "../../extract/editcard";
 import {
   createFontAwesomeIcon,
@@ -183,6 +184,7 @@ export function initEditcardRescrape() {
       pendingDuplicateChecks.push({
         editCard,
         urls: extractURLsFromEditCard(editCard),
+        ownEntityId: extractCreatedEntityId(editCard),
       });
     }
 
